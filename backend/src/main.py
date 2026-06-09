@@ -12,6 +12,7 @@ from .agents.orchestrator import orchestrator
 from .agents.specialists import AGENTS
 from .tools import TOOL_REGISTRY
 from .services.vision import vision_service
+from .services.audio import audio_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("lumen.server")
@@ -21,6 +22,8 @@ app.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ORIGINS, allow_cr
 
 # Connected clients
 clients: list[WebSocket] = []
+
+latest_screen_frame: str | None = None
 
 # ─── REST Endpoints ──────────────────────────────────────────────────────────
 
@@ -54,6 +57,7 @@ async def list_tools():
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    global latest_screen_frame
     await ws.accept()
     clients.append(ws)
     logger.info(f"Client connected. Total: {len(clients)}")
@@ -68,20 +72,34 @@ async def websocket_endpoint(ws: WebSocket):
                 text = msg.get("data", {}).get("text", "")
                 if not text: continue
                 await ws.send_json({"type": "agent_activity", "data": {"status": "processing", "agent": "orchestrator", "message": f"Processing: {text}"}, "timestamp": datetime.utcnow().isoformat()})
-                result = await orchestrator.process_command(text)
+                
+                # Pass the latest passively-collected frame as context
+                result = await orchestrator.process_command(text, screen_frame_b64=latest_screen_frame)
+                
+                # Synthesize speech
+                response_text = result.get("response", "")
+                if response_text:
+                    audio_b64 = await asyncio.to_thread(audio_service.synthesize_speech, response_text)
+                    result["audio_base64"] = audio_b64
+                
                 await ws.send_json({"type": "agent_response", "data": result, "timestamp": datetime.utcnow().isoformat()})
 
             elif msg_type == "screen_frame":
                 frame_b64 = msg.get("data", {}).get("image_base64", "")
                 question = msg.get("data", {}).get("question", "")
                 if frame_b64:
-                    await ws.send_json({"type": "agent_activity", "data": {"status": "analyzing", "agent": "screen_advisor", "message": "Analyzing screen..."}, "timestamp": datetime.utcnow().isoformat()})
+                    latest_screen_frame = frame_b64 # Silently store the latest frame for context
+                    
                     if question:
+                        await ws.send_json({"type": "agent_activity", "data": {"status": "analyzing", "agent": "screen_advisor", "message": "Analyzing screen..."}, "timestamp": datetime.utcnow().isoformat()})
                         result = await orchestrator.process_command(question, screen_frame_b64=frame_b64)
-                    else:
-                        analysis = await vision_service.analyze_frame(frame_b64)
-                        result = {"agent": "screen_advisor", "response": analysis["analysis"]}
-                    await ws.send_json({"type": "agent_response", "data": result, "timestamp": datetime.utcnow().isoformat()})
+                        
+                        response_text = result.get("response", "")
+                        if response_text:
+                            audio_b64 = await asyncio.to_thread(audio_service.synthesize_speech, response_text)
+                            result["audio_base64"] = audio_b64
+                            
+                        await ws.send_json({"type": "agent_response", "data": result, "timestamp": datetime.utcnow().isoformat()})
 
             elif msg_type == "tool_call":
                 tool_name = msg.get("data", {}).get("tool", "")

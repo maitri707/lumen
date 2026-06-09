@@ -34,42 +34,31 @@ class BedrockService:
         max_tokens: int = 2048,
         temperature: float = 0.3,
     ) -> str:
-        """Invoke Claude via Bedrock with optional image input."""
-        messages: list[dict[str, Any]] = []
-
-        # Build user content
-        content: list[dict[str, Any]] = []
+        """Invoke LLM via Bedrock Converse API with optional image input."""
+        user_content: list[dict[str, Any]] = []
 
         if image_base64:
-            content.append({
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/jpeg",
-                    "data": image_base64,
-                },
+            image_bytes = base64.b64decode(image_base64)
+            user_content.append({
+                "image": {
+                    "format": "jpeg",
+                    "source": {"bytes": image_bytes}
+                }
             })
 
-        content.append({"type": "text", "text": user_message})
-        messages.append({"role": "user", "content": content})
-
-        body = json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "system": system_prompt,
-            "messages": messages,
-        })
+        user_content.append({"text": user_message})
 
         try:
-            response = self._client.invoke_model(
+            response = self._client.converse(
                 modelId=self.model_id,
-                contentType="application/json",
-                accept="application/json",
-                body=body,
+                system=[{"text": system_prompt}],
+                messages=[{"role": "user", "content": user_content}],
+                inferenceConfig={
+                    "maxTokens": max_tokens,
+                    "temperature": temperature
+                }
             )
-            result = json.loads(response["body"].read())
-            return result["content"][0]["text"]
+            return response["output"]["message"]["content"][0]["text"]
         except Exception as e:
             logger.error(f"Bedrock invocation failed: {e}")
             # Return a graceful fallback for demo purposes

@@ -9,7 +9,22 @@ _event_log: list[EventLogEntry] = []
 def log_event(event: str, phase: str = "dissection", agent: str = "orchestrator", details: Optional[str] = None) -> dict[str, Any]:
     entry = EventLogEntry(timestamp=datetime.utcnow(), phase=SurgicalPhase(phase) if phase in [e.value for e in SurgicalPhase] else SurgicalPhase.DISSECTION, event=event, agent=AgentType(agent) if agent in [e.value for e in AgentType] else AgentType.ORCHESTRATOR, details=details)
     _event_log.append(entry)
-    return {"tool": "log_event", "message": f"Event logged: {event}", "entry_index": len(_event_log) - 1}
+    # Return the full updated log as an overlay so the UI refreshes immediately
+    entries = _event_log[-10:]
+    return {
+        "tool": "log_event",
+        "message": f"Event logged: {event}",
+        "entry_index": len(_event_log) - 1,
+        "overlay": {
+            "type": "event_log",
+            "title": f"Operative Log — {len(_event_log)} Events",
+            "content": {
+                "events": [{"time": e.timestamp.strftime("%H:%M:%S"), "phase": e.phase.value, "event": e.event, "agent": e.agent.value, "details": e.details} for e in entries],
+                "total_events": len(_event_log),
+            },
+            "position": "bottom-left",
+        },
+    }
 
 def show_event_log(last_n: int = 10) -> dict[str, Any]:
     entries = _event_log[-last_n:] if _event_log else []

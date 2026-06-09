@@ -18,7 +18,7 @@ class Settings:
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
 
     # Bedrock
-    BEDROCK_MODEL_ID: str = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-sonnet-4-20250514")
+    BEDROCK_MODEL_ID: str = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20240620-v1:0")
 
     # Transcribe
     TRANSCRIBE_LANGUAGE_CODE: str = os.getenv("TRANSCRIBE_LANGUAGE_CODE", "en-US")
