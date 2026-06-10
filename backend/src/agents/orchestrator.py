@@ -29,7 +29,8 @@ Never state clinical values from memory — always call a tool.""",
         briefing_agent, timeout_agent, report_agent, complication_agent,
         ebl_tracker_agent, drug_checker_agent, anatomy_spotter_agent,
         handoff_agent, screen_advisor_agent
-    ]
+    ],
+    tools=[TOOL_REGISTRY["hide_all_overlays"], TOOL_REGISTRY["show_only_ar"]]
 )
 
 AGENTS = {sub.name: sub for sub in orchestrator_agent.sub_agents}
