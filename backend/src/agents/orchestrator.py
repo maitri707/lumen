@@ -20,7 +20,7 @@ logger = logging.getLogger("lumen.orchestrator")
 
 orchestrator_agent = Agent(
     name="orchestrator",
-    description="ORION Orchestrator root agent",
+    description="LUMEN's Orchestrator root agent",
     instruction="""You are LUMEN's Orchestrator. Your ONLY job is to analyze the surgeon's voice command and route it to the correct specialist agent.
 You have 9 specialist agents.
 If it's a generic command or hiding overlays ("hide everything"), route to "orchestrator".

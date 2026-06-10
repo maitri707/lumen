@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LUMEN — Voice-Directed Intelligence for the Operating Room",
+  title: "LUMEN",
   description:
     "LUMEN gives surgeons hands-free access to everything — patient data, CT imaging, 3D anatomy, and AI-driven surgical checklists — using only their voice.",
 };
