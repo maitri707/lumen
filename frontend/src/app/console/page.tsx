@@ -110,6 +110,8 @@ export default function ConsolePage() {
   }, []);
 
   // Initialize Speech Recognition
+  const keepMicActiveRef = useRef(false);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -126,12 +128,23 @@ export default function ConsolePage() {
 
         rec.onend = () => {
           setIsListening(false);
-          // Optional: auto-restart logic could go here if needed, but continuous=true 
-          // usually keeps it open until the user stops it or navigates away.
+          // Auto-restart if we are supposed to be listening
+          if (keepMicActiveRef.current) {
+            // Small delay to prevent infinite fast-crashing loops if 'network' error persists
+            setTimeout(() => {
+              if (keepMicActiveRef.current) {
+                try {
+                  rec.start();
+                } catch (err) {
+                  console.error("Auto-restart failed", err);
+                }
+              }
+            }, 500);
+          }
         };
 
         rec.onerror = (event: any) => {
-          console.error("Speech recognition error:", event.error);
+          console.warn("Speech recognition error:", event.error);
           setIsListening(false);
           if (event.error !== "no-speech") {
             setAgentActivity(`Speech recognition error: ${event.error}`);
@@ -166,8 +179,10 @@ export default function ConsolePage() {
     }
 
     if (isListening) {
+      keepMicActiveRef.current = false; // User manually wants it off
       recognition.stop();
     } else {
+      keepMicActiveRef.current = true; // User manually wants it on
       try {
         recognition.start();
       } catch (err) {
@@ -183,6 +198,11 @@ export default function ConsolePage() {
       setIsScreenSharing(false);
       if (videoRef.current) videoRef.current.srcObject = null;
       wsRef.current.sendToolCall("stop_screen_share");
+      
+      keepMicActiveRef.current = false;
+      if (recognition && isListening) {
+        recognition.stop();
+      }
       return;
     }
     try {
@@ -194,10 +214,18 @@ export default function ConsolePage() {
       if (videoRef.current) videoRef.current.srcObject = stream;
       setIsScreenSharing(true);
       wsRef.current.sendToolCall("start_screen_share");
+      
+      // Auto-start microphone when screen sharing starts
+      keepMicActiveRef.current = true;
+      if (recognition && !isListening) {
+        try {
+          recognition.start();
+        } catch (e) {}
+      }
     } catch (err) {
       console.error("Screen share failed:", err);
     }
-  }, [isScreenSharing]);
+  }, [isScreenSharing, recognition, isListening]);
 
   // Tool click
   const handleToolClick = useCallback((tool: string) => {

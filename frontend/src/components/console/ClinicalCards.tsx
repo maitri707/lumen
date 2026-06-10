@@ -4,6 +4,23 @@ export function ClinicalCard({ overlay, onClose, inline = false }: { overlay: an
   const renderContent = () => {
     // Basic formatting for different overlay types
     if (overlay.type === "patient_data" || overlay.type === "all_patient_data") {
+      if (overlay.content.patients && Array.isArray(overlay.content.patients)) {
+        return (
+          <div className="space-y-3">
+            <p className="text-slate-500 text-xs font-semibold mb-2 uppercase tracking-wider">Scheduled Patients</p>
+            {overlay.content.patients.map((pt: any, i: number) => (
+              <div key={i} className="flex flex-col p-2 bg-slate-50 rounded border border-slate-100">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-800">{pt.name}</span>
+                  <span className="text-[10px] font-mono text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200">{pt.id}</span>
+                </div>
+                <span className="text-xs text-sky-700 font-medium mt-1">{pt.procedure}</span>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
       return (
         <div className="space-y-2">
           {Object.entries(overlay.content).map(([key, value]) => (

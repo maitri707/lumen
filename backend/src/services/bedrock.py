@@ -41,26 +41,18 @@ class BedrockService:
     def _mock_invoke(self, system_prompt: str, user_message: str, image_base64: Optional[str] = None) -> str:
         msg_lower = user_message.lower()
         
-        # 1. Routing System Prompt
-        if "LUMEN's Orchestrator" in system_prompt:
-            target = "orchestrator"
-            if any(k in msg_lower for k in ["brief", "patient", "allerg", "record", "history"]):
-                target = "briefing"
-            elif any(k in msg_lower for k in ["timeout", "checklist", "safety"]):
-                target = "timeout"
-            elif any(k in msg_lower for k in ["complication", "bleed", "leak", "emergency"]):
-                target = "complication"
-            elif any(k in msg_lower for k in ["ebl", "blood", "loss"]):
-                target = "ebl_tracker"
-            elif any(k in msg_lower for k in ["drug", "med", "dose", "allergy", "contra"]):
-                target = "drug_checker"
-            elif any(k in msg_lower for k in ["anatomy", "3d", "model", "rotate", "structure", "hide", "reset"]):
-                target = "anatomy_spotter"
-            elif any(k in msg_lower for k in ["handoff", "shift", "sbar"]):
-                target = "handoff"
-            elif any(k in msg_lower for k in ["screen", "vision", "ct", "scan", "feed"]):
-                target = "screen_advisor"
-            return json.dumps({"target_agent": target})
+        # 1. General conversational prompt (orchestrator fallback)
+        if "voice-directed surgical intelligence assistant" in system_prompt:
+            return json.dumps({
+                "response": (
+                    "I'm LUMEN, your voice-directed surgical assistant. Here's what I can do: "
+                    "Say 'Give me the briefing' for patient data, 'Run the WHO checklist' for safety timeout, "
+                    "'Is it safe to give Penicillin?' for drug checks, 'We lost 200 mL of blood' for EBL tracking, "
+                    "'Show me the 3D model' for anatomy, 'What are the danger zones?' for critical structures, "
+                    "'We have a bleeding complication' for emergency protocols, 'Show me the op report' for the operative log, "
+                    "'Prepare a handoff' for SBAR summaries, or 'What's happening on screen?' when screen sharing is active."
+                )
+            })
             
         # 2. Specialist Agent prompts
         if "briefing" in system_prompt:
@@ -197,10 +189,37 @@ class BedrockService:
         image_base64: Optional[str] = None,
         max_tokens: int = 2048,
         temperature: float = 0.3,
+        history: Optional[list[dict[str, str]]] = None,
     ) -> str:
-        """Invoke LLM via Bedrock Converse API with optional image input."""
+        """Invoke LLM via Bedrock Converse API with optional image input and conversation history."""
         if self.is_mock:
             return self._mock_invoke(system_prompt, user_message, image_base64)
+
+        messages = []
+        
+        # Add past history if provided (limit to last 10 messages for context window)
+        if history:
+            valid_history = []
+            for msg in history[-10:]:
+                # Bedrock expects role to be 'user' or 'assistant'
+                role = msg.get("role", "user")
+                if role not in ["user", "assistant"]:
+                    role = "assistant"
+                
+                # AWS Converse API requires strictly alternating roles
+                if valid_history and valid_history[-1]["role"] == role:
+                    valid_history[-1]["content"][0]["text"] += "\n" + msg.get("content", "")
+                else:
+                    valid_history.append({
+                        "role": role,
+                        "content": [{"text": msg.get("content", "")}]
+                    })
+                    
+            # AWS Converse API requires the conversation to start with a 'user' message
+            if valid_history and valid_history[0]["role"] != "user":
+                valid_history.pop(0)
+
+            messages.extend(valid_history)
 
         user_content: list[dict[str, Any]] = []
 
@@ -214,12 +233,13 @@ class BedrockService:
             })
 
         user_content.append({"text": user_message})
+        messages.append({"role": "user", "content": user_content})
 
         try:
             response = self._client.converse(
                 modelId=self.model_id,
                 system=[{"text": system_prompt}],
-                messages=[{"role": "user", "content": user_content}],
+                messages=messages,
                 inferenceConfig={
                     "maxTokens": max_tokens,
                     "temperature": temperature

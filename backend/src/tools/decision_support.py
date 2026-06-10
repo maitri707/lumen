@@ -18,6 +18,11 @@ def update_ebl(amount_ml: float, source: str = "surgeon_estimate") -> dict[str, 
     if pct >= 40: alert = "CRITICAL — 40% EBV lost. Massive transfusion protocol recommended."
     elif pct >= 25: alert = "WARNING — 25% EBV lost. Consider transfusion."
     elif pct >= 15: alert = "CAUTION — 15% EBV lost. Monitor closely."
+    
+    # Also log this to the central Operative Log
+    from .op_log import log_event
+    log_event(event=f"Blood loss updated: +{amount_ml} mL", agent="ebl_tracker", details=f"Cumulative EBL is now {_cumulative_ebl} mL ({round(pct, 1)}% of EBV).")
+
     result = {"tool": "update_ebl", "cumulative_ml": _cumulative_ebl, "percentage_ebv": round(pct, 1), "ebv_ml": _patient.estimated_blood_volume_ml}
     if alert: result["alert"] = alert
     result["overlay"] = {"type": "ebl", "title": "Blood Loss Tracker", "content": {"cumulative_ml": _cumulative_ebl, "pct": round(pct, 1), "alert": alert}, "position": "bottom-left"}

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .agents.orchestrator import orchestrator
-from .agents.specialists import AGENTS
+from .agents import AGENTS
 from .tools import TOOL_REGISTRY
 from .services.vision import vision_service
 from .services.audio import audio_service
