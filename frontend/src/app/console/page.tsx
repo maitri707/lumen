@@ -51,6 +51,12 @@ export default function ConsolePage() {
         if (data.audio_base64) {
           const audio = new Audio("data:audio/mp3;base64," + data.audio_base64);
           audio.play().catch(e => console.error("Audio playback failed:", e));
+        } else if (data.response) {
+          // Fallback to browser's built-in Web Speech API if AWS Polly is not configured
+          if (typeof window !== "undefined" && "speechSynthesis" in window) {
+            const utterance = new SpeechSynthesisUtterance(data.response);
+            window.speechSynthesis.speak(utterance);
+          }
         }
 
         if (data.tool_result?.overlay) {
@@ -133,6 +139,10 @@ export default function ConsolePage() {
         };
 
         rec.onresult = (event: any) => {
+          // If the browser is currently reading out a response, ignore recognition to prevent feedback loops
+          if (typeof window !== "undefined" && window.speechSynthesis && window.speechSynthesis.speaking) {
+            return;
+          }
           for (let i = event.resultIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) {
               const transcript = event.results[i][0].transcript;
@@ -369,16 +379,29 @@ export default function ConsolePage() {
             <h3 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-3">
               Conversation Log
             </h3>
-            <div className="space-y-2">
-              {conversation.filter(m => m.role === "user").length === 0 ? (
+            <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
+              {conversation.length === 0 ? (
                 <p className="text-[11px] text-slate-400 italic">No commands yet</p>
               ) : (
-                conversation.filter(m => m.role === "user").map((msg, i) => (
-                  <div key={i} className="p-2 border border-slate-100 rounded-lg text-xs bg-slate-50">
-                    <span className="font-bold text-[9px] uppercase tracking-wider block mb-1 text-slate-400">
-                      Doctor Command
+                conversation.map((msg, i) => (
+                  <div 
+                    key={i} 
+                    className={`p-2.5 border rounded-xl text-xs transition-all ${
+                      msg.role === "user" 
+                        ? "border-slate-100 bg-slate-50" 
+                        : "border-sky-100 bg-sky-50/40 text-slate-800"
+                    }`}
+                  >
+                    <span className={`font-bold text-[9px] uppercase tracking-wider block mb-1 ${
+                      msg.role === "user" ? "text-slate-400" : "text-sky-600"
+                    }`}>
+                      {msg.role === "user" ? "Doctor Command" : `${msg.agent || "Agent"} Response`}
                     </span>
-                    <p className="leading-relaxed font-medium text-slate-700">"{msg.content}"</p>
+                    <p className={`leading-relaxed font-medium ${
+                      msg.role === "user" ? "text-slate-700" : "text-sky-950"
+                    }`}>
+                      {msg.role === "user" ? `"${msg.content}"` : msg.content}
+                    </p>
                   </div>
                 ))
               )}

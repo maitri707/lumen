@@ -55,12 +55,23 @@ class Orchestrator:
             
         # 3. Fallback generic handling
         from ..tools import TOOL_REGISTRY
-        if "hide" in text.lower() or "clear" in text.lower():
+        text_lower = text.lower()
+        if "hide" in text_lower or "clear" in text_lower:
              tool_result = TOOL_REGISTRY.get("hide_all_overlays", lambda: None)()
              response_text = "All overlays cleared."
              self.conversation_history.append({"role": "assistant", "content": response_text})
              return {"agent": "orchestrator", "response": response_text, "tool": "hide_all_overlays", "tool_result": tool_result}
              
+        import re
+        if re.search(r'\b(hello|hi|who are you|what can you do|help|who is this)\b', text_lower):
+             response_text = (
+                 "Hello! I am LUMEN, your voice-directed surgical intelligence assistant. "
+                 "I can help you with pre-operative briefings, the WHO safety checklist, drug safety, blood loss tracking, "
+                 "displaying complication protocols, and controlling the 3D anatomical model. How can I assist you in the OR today?"
+             )
+             self.conversation_history.append({"role": "assistant", "content": response_text})
+             return {"agent": "orchestrator", "response": response_text, "tool": None, "tool_result": None}
+
         response_text = "I'm not sure which agent should handle that command."
         self.conversation_history.append({"role": "assistant", "content": response_text})
         return {"agent": "orchestrator", "response": response_text, "tool": None, "tool_result": None}

@@ -8,17 +8,33 @@ logger = logging.getLogger("lumen.audio")
 
 class AudioService:
     def __init__(self):
-        self._polly = boto3.client(
-            "polly",
-            region_name=settings.AWS_REGION,
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID or None,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY or None,
+        self.is_mock = (
+            not settings.AWS_ACCESS_KEY_ID or 
+            "your_access_key" in settings.AWS_ACCESS_KEY_ID or 
+            "placeholder" in settings.AWS_ACCESS_KEY_ID
         )
+        if not self.is_mock:
+            try:
+                self._polly = boto3.client(
+                    "polly",
+                    region_name=settings.AWS_REGION,
+                    aws_access_key_id=settings.AWS_ACCESS_KEY_ID or None,
+                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY or None,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to create Polly client, falling back to mock mode: {e}")
+                self.is_mock = True
+        else:
+            logger.info("Polly is running in MOCK mode (placeholder or missing credentials).")
         self.voice_id = settings.POLLY_VOICE_ID
 
     def synthesize_speech(self, text: str) -> str | None:
         """Convert text to speech and return base64 encoded MP3."""
         if not text:
+            return None
+            
+        if self.is_mock:
+            logger.info(f"[Mock Audio] Synthesizing speech: '{text}' (mock active, no sound generated)")
             return None
             
         try:
