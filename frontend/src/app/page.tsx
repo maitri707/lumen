@@ -16,13 +16,18 @@ export default function HomePage() {
       <TechStack />
 
       {/* Footer */}
-      <footer className="py-16 bg-white border-t border-zinc-200 text-center">
-        <p className="text-zinc-500 text-base font-medium">
-          <span className="text-indigo-600 font-extrabold tracking-tight">LUMEN</span> — Conversational AI for the Surgical Suite
-        </p>
-        <p className="text-zinc-400 text-sm mt-3">
-          Powered by Amazon Bedrock · FastAPI · Next.js · Three.js
-        </p>
+      <footer className="max-w-7xl mx-auto px-6 py-10 border-t border-zinc-200/80 flex flex-col sm:flex-row justify-between items-center gap-4 text-zinc-400 text-xs mt-12">
+        <div className="flex items-center gap-2 font-mono">
+          <span className="font-bold text-zinc-700">LUMEN</span>
+          <span className="text-zinc-300">|</span>
+          <span>Surgical Intelligence System</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span>Made with</span>
+          <span className="text-rose-500 animate-pulse">❤️</span>
+          <span>by</span>
+          <span className="font-semibold text-zinc-800 hover:text-zinc-950 transition-colors cursor-default">Team Kaizen</span>
+        </div>
       </footer>
     </main>
   );
