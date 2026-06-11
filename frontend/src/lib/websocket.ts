@@ -81,6 +81,12 @@ class LumenWebSocket {
     this.send("voice_command", { text });
   }
 
+  sendAudioBlob(blob: Blob): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(blob);
+    }
+  }
+
   sendScreenFrame(imageBase64: string, question?: string): void {
     this.send("screen_frame", { image_base64: imageBase64, question });
   }

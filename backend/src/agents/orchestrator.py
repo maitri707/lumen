@@ -34,71 +34,7 @@ orchestrator_agent = Agent(
 
 AGENTS = {sub.name: sub for sub in orchestrator_agent.sub_agents}
 
-# ── Keyword routing table ──────────────────────────────────────────
-# Order matters: more specific patterns first, broader ones last.
-KEYWORD_ROUTES = [
-    ("patient_manager", [
-        "load patient", "select patient", "start case for", "we are operating on",
-        "switch patient", "patient is", "set patient", "patients list", "patient list",
-        "schedule", "who are the patients", "list of patients", "working on", "open patient",
-        "patient"
-    ]),
-    ("anatomy_spotter", [
-        "3d model", "3d view", "rotate the model", "rotate model", "show me the lung",
-        "danger zone", "at-risk", "at risk", "anatomy", "critical structure",
-        "show the model", "left side", "right side", "posterior", "anterior",
-        "lung", "lungs", "lobes", "chest"
-        "show me the right", "show me the left",
-    ]),
-    ("complication", [
-        "complication", "bleeding protocol", "bile duct injury", "bile duct",
-        "pneumothorax", "conversion protocol", "emergency protocol",
-        "nerve injury", "air leak", "hemorrhage",
-    ]),
-    ("drug_checker", [
-        "drug safety", "safe to give", "safe to administer", "can we give",
-        "medication check", "drug interaction", "contraindication",
-        "penicillin", "cefazolin", "warfarin", "aspirin", "metoprolol", "lisinopril",
-        "check drug", "is it safe",
-    ]),
-    ("ebl_tracker", [
-        "blood loss", "ebl", "milliliters of blood", "ml of blood",
-        "estimated blood", "transfusion", "how much blood", "total blood",
-        "lost blood", "suctioned", "we lost",
-    ]),
-    ("report", [
-        "operative report", "op report", "event log", "log that",
-        "log event", "show the log", "show the report", "show me the report",
-        "record that", "note that", "document that",
-    ]),
-    ("timeout", [
-        "timeout", "time out", "who checklist", "safety checklist",
-        "surgical safety", "run the checklist", "sign in", "sign out",
-    ]),
-    ("briefing", [
-        "briefing", "brief me", "pre-op", "patient summary", "patient data",
-        "show patient", "patient record", "patient info", "allergies",
-        "who is the patient", "patient name",
-    ]),
-    ("handoff", [
-        "handoff", "hand off", "shift change", "sbar", "scrub out",
-        "handover", "transfer care",
-    ]),
-    ("screen_advisor", [
-        "what do you see", "what's on screen", "what is on screen",
-        "screen share", "what's happening", "what is happening",
-        "describe the screen", "analyze the screen", "what instrument",
-        "tell me what you see", "look at the screen", "on the screen",
-    ]),
-]
-
-
-def _route_by_keywords(text_lower: str) -> Optional[str]:
-    """Instant keyword-based routing. Returns agent name or None."""
-    for agent_name, keywords in KEYWORD_ROUTES:
-        if any(kw in text_lower for kw in keywords):
-            return agent_name
-    return None
+# ── ML Intent Routing replaces KEYWORD_ROUTES ──────────────
 
 
 # ── General-purpose prompt for conversational fallback ──────────────
@@ -118,12 +54,46 @@ You can assist with:
 Answer the user's question naturally and helpfully. Be concise and professional. Keep responses under 2 sentences."""
 
 
+MAX_HISTORY = 6
+
 class Orchestrator:
     def __init__(self):
         self.conversation_history: list[dict[str, str]] = []
         self.agent = orchestrator_agent
+        self._build_specialist_prompts()
+
+    def _trimmed_history(self) -> list[dict[str, str]]:
+        return self.conversation_history[-MAX_HISTORY:] if self.conversation_history else []
+
+    def _build_specialist_prompts(self):
+        import inspect
+        self._specialist_prompts = {}
+        for name, specialist in AGENTS.items():
+            tool_descriptions = []
+            for tool_fn in specialist.tools:
+                doc = (getattr(tool_fn, "__doc__", "") or "").split("\n")[0].strip()
+                try:
+                    sig = str(inspect.signature(tool_fn))
+                except Exception:
+                    sig = "()"
+                tool_descriptions.append(f"- {tool_fn.__name__}{sig}: {doc}")
+            
+            self._specialist_prompts[name] = (
+                specialist.instruction
+                + "\n\nAvailable tools:\n"
+                + "\n".join(tool_descriptions)
+                + """\n\nRespond ONLY with a valid JSON object in this exact format:
+{"action": "brief description", "tool": "tool_name_or_null", "tool_args": {"arg_name": "value"}, "response": "verbal response to user"}"""
+            )
 
     async def process_command(self, text: str, screen_frame_b64: Optional[str] = None) -> dict[str, Any]:
+        from ..tools.patient_data import get_patient
+        pt = get_patient()
+        pt_context = f"\n\nActive Patient Context:\n- Name: {pt.name} (Age {pt.age}, {pt.sex})\n- Diagnosis: {pt.diagnosis}\n- Procedure: {pt.procedure}\n- Allergies: {', '.join(pt.allergies)}"
+
+        # Snapshot history BEFORE appending current turn
+        history_snapshot = self._trimmed_history()
+
         self.conversation_history.append({"role": "user", "content": text})
         text_lower = text.lower()
 
@@ -134,12 +104,13 @@ class Orchestrator:
             self.conversation_history.append({"role": "assistant", "content": response_text})
             return {"agent": "orchestrator", "response": response_text, "tool": "hide_all_overlays", "tool_result": tool_result}
 
-        # ── Step 2: Instant keyword routing (no LLM call) ──
-        target_agent = _route_by_keywords(text_lower)
+        # ── Step 2: Fast ML Intent Classification (No LLM Call) ──
+        from ..services.classifier import intent_classifier
+        target_agent, confidence = intent_classifier.classify(text_lower, threshold=0.25)
 
         if target_agent and target_agent in AGENTS:
-            logger.info(f"Keyword-routed to: {target_agent}")
-            return await self._run_specialist(target_agent, text, screen_frame_b64)
+            logger.info(f"ML-routed to: {target_agent} (confidence: {confidence:.2f})")
+            return await self._run_specialist(target_agent, text, screen_frame_b64, pt_context, history_snapshot)
 
         # ── Step 3: Semantic LLM routing ──
         logger.info("No keyword match — attempting semantic routing")
@@ -157,28 +128,29 @@ Return ONLY the single word representing the agent name."""
                 max_tokens=20
             )
             semantic_agent = semantic_response.strip().lower()
+            semantic_clean = semantic_agent.replace(" ", "_").replace("-", "_").lower()
             
             # Match the response to an agent
             for name in AGENTS.keys():
-                if name in semantic_agent:
+                if name == semantic_clean or name in semantic_clean:
                     logger.info(f"Semantically routed to: {name}")
-                    return await self._run_specialist(name, text, screen_frame_b64)
+                    return await self._run_specialist(name, text, screen_frame_b64, pt_context, history_snapshot)
+
+            # Router returned "none" — fall through to step 4
+            if semantic_clean == "none":
+                raise ValueError("Unroutable — go to general fallback")
+                
         except Exception as e:
-            logger.error(f"Semantic routing failed: {e}")
+            logger.error(f"Routing miss ({e}) — general fallback")
 
         # ── Step 4: General conversational fallback (single LLM call) ──
         logger.info("Semantic routing failed — using general LLM response")
-        
-        # Inject current patient context
-        from ..tools.patient_data import get_patient
-        pt = get_patient()
-        pt_context = f"\n\nActive Patient Context:\n- Name: {pt.name} (Age {pt.age}, {pt.sex})\n- Diagnosis: {pt.diagnosis}\n- Procedure: {pt.procedure}\n- Allergies: {', '.join(pt.allergies)}"
-        
         try:
+            # General fallback doesn't need the JSON system reminder
             raw_response = await bedrock_service.invoke(
                 system_prompt=GENERAL_PROMPT + pt_context,
                 user_message=text,
-                history=self.conversation_history[:-1] # Pass history excluding the current user message
+                history=history_snapshot
             )
             response_text = raw_response.strip()
             # Clean up any JSON wrapping from mock mode
@@ -199,8 +171,13 @@ Return ONLY the single word representing the agent name."""
         self.conversation_history.append({"role": "assistant", "content": response_text})
         return {"agent": "orchestrator", "response": response_text, "tool": None, "tool_result": None}
 
-    async def _run_specialist(self, agent_name: str, text: str, screen_frame_b64: Optional[str] = None) -> dict[str, Any]:
+    async def _run_specialist(self, agent_name: str, text: str, screen_frame_b64: Optional[str] = None, pt_context: str = None, history_snapshot: list = None) -> dict[str, Any]:
         """Run a single specialist agent — makes exactly ONE LLM call."""
+        if pt_context is None:
+            raise ValueError("pt_context is required for specialist calls")
+        if history_snapshot is None:
+            history_snapshot = []
+            
         specialist = AGENTS[agent_name]
 
         # Special case: screen_advisor with an active frame uses vision service directly
@@ -222,32 +199,16 @@ Return ONLY the single word representing the agent name."""
             self.conversation_history.append({"role": "assistant", "content": response_payload["response"]})
             return response_payload
 
-        # Build specialist prompt with specific tool signatures and descriptions
-        import inspect
-        tool_descriptions = []
-        for tool_fn in specialist.tools:
-            doc_str = getattr(tool_fn, "__doc__", None) or "No description"
-            doc = doc_str.split("\n")[0].strip()
-            try:
-                sig = str(inspect.signature(tool_fn))
-            except Exception:
-                sig = "()"
-            tool_descriptions.append(f"- {tool_fn.__name__}{sig}: {doc}")
+        full_prompt = self._specialist_prompts[agent_name] + pt_context
 
-        # Inject current patient context
-        from ..tools.patient_data import get_patient
-        pt = get_patient()
-        pt_context = f"\n\nActive Patient Context:\n- Name: {pt.name} (Age {pt.age}, {pt.sex})\n- Diagnosis: {pt.diagnosis}\n- Procedure: {pt.procedure}\n- Allergies: {', '.join(pt.allergies)}"
-
-        full_prompt = specialist.instruction + pt_context + "\n\nAvailable tools:\n" + "\n".join(tool_descriptions)
-        full_prompt += """\n\nRespond ONLY with a valid JSON object in this exact format:
-{"action": "brief description", "tool": "tool_name_or_null", "tool_args": {"arg_name": "value"}, "response": "verbal response to user"}"""
+        # Enforce JSON formatting by appending a reminder directly to the user's message
+        enforced_user_message = f"{text}\n\n[SYSTEM REMINDER: You MUST respond ONLY with the raw JSON object containing action, tool, tool_args, and response. No other text.]"
 
         raw = await bedrock_service.invoke(
             system_prompt=full_prompt,
-            user_message=text,
+            user_message=enforced_user_message,
             image_base64=screen_frame_b64,
-            history=self.conversation_history[:-1]
+            history=history_snapshot
         )
 
         try:
@@ -275,9 +236,16 @@ Return ONLY the single word representing the agent name."""
             self.conversation_history.append({"role": "assistant", "content": result.get("response", "")})
             return result
         except Exception as e:
-            logger.error(f"Agent JSON parse error for {agent_name}: {e}")
-            # Return the raw text as a spoken response even if JSON parsing failed
-            response_text = raw if raw and not raw.startswith("[LUMEN]") else f"The {agent_name} agent processed your request."
+            raw_err = raw[:200] if isinstance(raw, str) else str(raw)
+            logger.error(f"Agent JSON parse error for {agent_name}: {e}\nRaw: {raw_err}")
+            
+            # Try to salvage just the response field with regex
+            match = re.search(r'"response"\s*:\s*"([^"]+)"', str(raw))
+            if match:
+                response_text = match.group(1)
+            else:
+                response_text = raw if raw and not str(raw).startswith("[LUMEN]") else f"I processed your {agent_name} request but had a formatting issue. Please try again."
+                
             self.conversation_history.append({"role": "assistant", "content": response_text})
             return {"agent": specialist.name, "response": response_text, "tool": None, "tool_result": None}
 

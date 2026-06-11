@@ -64,25 +64,59 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.send_json({"type": "connection", "data": {"status": "connected", "agents": len(AGENTS), "tools": len(TOOL_REGISTRY)}, "timestamp": datetime.utcnow().isoformat()})
     try:
         while True:
-            raw = await ws.receive_text()
-            msg = json.loads(raw)
-            msg_type = msg.get("type", "")
-
-            if msg_type == "voice_command":
-                text = msg.get("data", {}).get("text", "")
-                if not text: continue
+            message = await ws.receive()
+            
+            # Handle binary audio packets from the VAD
+            if "bytes" in message:
+                audio_data = message["bytes"]
+                # Send "transcribing" activity
+                await ws.send_json({"type": "agent_activity", "data": {"status": "listening", "agent": "orchestrator", "message": "Transcribing audio (Groq)..."}, "timestamp": datetime.utcnow().isoformat()})
+                
+                try:
+                    from .services.transcription import transcription_service
+                    text = await transcription_service.transcribe_audio(audio_data)
+                except Exception as e:
+                    logger.error(f"Transcription failed: {e}")
+                    await ws.send_json({"type": "error", "data": {"error": f"Transcription failed: {e}"}, "timestamp": datetime.utcnow().isoformat()})
+                    continue
+                    
+                if not text:
+                    continue
+                    
+                # We have text! Now process it exactly like a text command
                 await ws.send_json({"type": "agent_activity", "data": {"status": "processing", "agent": "orchestrator", "message": f"Processing: {text}"}, "timestamp": datetime.utcnow().isoformat()})
                 
-                # Pass the latest passively-collected frame as context
                 result = await orchestrator.process_command(text, screen_frame_b64=latest_screen_frame)
                 
-                # Synthesize speech
                 response_text = result.get("response", "")
                 if response_text:
                     audio_b64 = await asyncio.to_thread(audio_service.synthesize_speech, response_text)
                     result["audio_base64"] = audio_b64
                 
                 await ws.send_json({"type": "agent_response", "data": result, "timestamp": datetime.utcnow().isoformat()})
+                continue
+                
+            # Handle standard JSON messages
+            if "text" in message:
+                raw = message["text"]
+                msg = json.loads(raw)
+                msg_type = msg.get("type", "")
+    
+                if msg_type == "voice_command":
+                    text = msg.get("data", {}).get("text", "")
+                    if not text: continue
+                    await ws.send_json({"type": "agent_activity", "data": {"status": "processing", "agent": "orchestrator", "message": f"Processing: {text}"}, "timestamp": datetime.utcnow().isoformat()})
+                    
+                    # Pass the latest passively-collected frame as context
+                    result = await orchestrator.process_command(text, screen_frame_b64=latest_screen_frame)
+                    
+                    # Synthesize speech
+                    response_text = result.get("response", "")
+                    if response_text:
+                        audio_b64 = await asyncio.to_thread(audio_service.synthesize_speech, response_text)
+                        result["audio_base64"] = audio_b64
+                    
+                    await ws.send_json({"type": "agent_response", "data": result, "timestamp": datetime.utcnow().isoformat()})
 
             elif msg_type == "screen_frame":
                 frame_b64 = msg.get("data", {}).get("image_base64", "")

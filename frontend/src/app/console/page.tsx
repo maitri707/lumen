@@ -21,7 +21,6 @@ export default function ConsolePage() {
   }, [activeAgent]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState<any>(null);
 
   const screenShareRef = useRef<ScreenShareManager | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -109,87 +108,108 @@ export default function ConsolePage() {
     ws.sendVoiceCommand(text);
   }, []);
 
-  // Initialize Speech Recognition
+  // ─── Custom AudioWorklet VAD ───
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
   const keepMicActiveRef = useRef(false);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const rec = new SpeechRecognition();
-        rec.continuous = true;
-        rec.interimResults = false;
-        rec.lang = "en-US";
-
-        rec.onstart = () => {
-          setIsListening(true);
-          setAgentActivity("Listening continuously...");
-        };
-
-        rec.onend = () => {
-          setIsListening(false);
-          // Auto-restart if we are supposed to be listening
-          if (keepMicActiveRef.current) {
-            // Small delay to prevent infinite fast-crashing loops if 'network' error persists
-            setTimeout(() => {
-              if (keepMicActiveRef.current) {
-                try {
-                  rec.start();
-                } catch (err) {
-                  console.error("Auto-restart failed", err);
-                }
-              }
-            }, 500);
-          }
-        };
-
-        rec.onerror = (event: any) => {
-          console.warn("Speech recognition error:", event.error);
-          setIsListening(false);
-          if (event.error !== "no-speech") {
-            setAgentActivity(`Speech recognition error: ${event.error}`);
-          }
-        };
-
-        rec.onresult = (event: any) => {
-          // If the browser is currently reading out a response, ignore recognition to prevent feedback loops
-          if (typeof window !== "undefined" && window.speechSynthesis && window.speechSynthesis.speaking) {
-            return;
-          }
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              const transcript = event.results[i][0].transcript;
-              if (transcript.trim()) {
-                sendCommand(transcript);
-                setAgentActivity(`Command recognized: "${transcript}"`);
-              }
-            }
-          }
-        };
-
-        setRecognition(rec);
+  // WAV Encoding Helper
+  const encodeWAV = useCallback((chunks: Float32Array[], sampleRate: number): Blob => {
+    let length = 0;
+    for (let i = 0; i < chunks.length; i++) length += chunks[i].length;
+    
+    const buffer = new ArrayBuffer(44 + length * 2);
+    const view = new DataView(buffer);
+    
+    const writeString = (view: DataView, offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+    };
+    
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + length * 2, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, 1, true); // 1 channel
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, length * 2, true);
+    
+    let offset = 44;
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      for (let j = 0; j < chunk.length; j++) {
+        let s = Math.max(-1, Math.min(1, chunk[j]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
       }
     }
-  }, [sendCommand]);
+    return new Blob([buffer], { type: 'audio/wav' });
+  }, []);
 
-  const toggleListening = useCallback(() => {
-    if (!recognition) {
-      alert("Speech recognition is not supported in this browser. Please use Chrome or Safari.");
-      return;
-    }
-
+  const toggleListening = useCallback(async () => {
     if (isListening) {
-      keepMicActiveRef.current = false; // User manually wants it off
-      recognition.stop();
+      keepMicActiveRef.current = false;
+      setIsListening(false);
+      if (workletNodeRef.current) {
+        workletNodeRef.current.disconnect();
+        workletNodeRef.current = null;
+      }
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach(t => t.stop());
+        audioStreamRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      setAgentActivity("LUMEN offline.");
     } else {
-      keepMicActiveRef.current = true; // User manually wants it on
+      keepMicActiveRef.current = true;
       try {
-        recognition.start();
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+        audioContextRef.current = audioCtx;
+        
+        await audioCtx.audioWorklet.addModule('/vad-worklet.js');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        audioStreamRef.current = stream;
+        
+        const source = audioCtx.createMediaStreamSource(stream);
+        const node = new AudioWorkletNode(audioCtx, 'vad-processor');
+        workletNodeRef.current = node;
+        
+        let audioChunks: Float32Array[] = [];
+        
+        node.port.onmessage = (e) => {
+          if (e.data.type === 'start') {
+            audioChunks = [];
+            setAgentActivity("Hearing audio...");
+          } else if (e.data.type === 'chunk') {
+            audioChunks.push(e.data.data);
+          } else if (e.data.type === 'stop') {
+            if (audioChunks.length > 0) {
+              setAgentActivity("Encoding and sending audio snippet...");
+              const wavBlob = encodeWAV(audioChunks, 16000);
+              wsRef.current.sendAudioBlob(wavBlob);
+            }
+            audioChunks = [];
+          }
+        };
+        
+        source.connect(node);
+        setIsListening(true);
+        setAgentActivity("VAD active. Listening continuously...");
       } catch (err) {
-        console.error("Failed to start speech recognition:", err);
+        console.error("Failed to start VAD:", err);
+        setAgentActivity("Microphone access denied or VAD failed.");
       }
     }
-  }, [recognition, isListening]);
+  }, [isListening, encodeWAV]);
 
   // Screen share toggle
   const toggleScreenShare = useCallback(async () => {
@@ -200,8 +220,8 @@ export default function ConsolePage() {
       wsRef.current.sendToolCall("stop_screen_share");
       
       keepMicActiveRef.current = false;
-      if (recognition && isListening) {
-        recognition.stop();
+      if (isListening) {
+        toggleListening();
       }
       return;
     }
@@ -217,15 +237,13 @@ export default function ConsolePage() {
       
       // Auto-start microphone when screen sharing starts
       keepMicActiveRef.current = true;
-      if (recognition && !isListening) {
-        try {
-          recognition.start();
-        } catch (e) {}
+      if (!isListening) {
+        toggleListening();
       }
     } catch (err) {
       console.error("Screen share failed:", err);
     }
-  }, [isScreenSharing, recognition, isListening]);
+  }, [isScreenSharing, isListening, toggleListening]);
 
   // Tool click
   const handleToolClick = useCallback((tool: string) => {
