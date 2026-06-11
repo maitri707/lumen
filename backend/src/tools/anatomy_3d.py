@@ -7,7 +7,10 @@ from typing import Any
 _anatomy_state = {
     "visible": False,
     "rotation": {"x": 0, "y": 0, "z": 0},
+    "zoom": 1.0,
+    "camera_view": "default", # "top", "bottom", "left", "right", "anterior", "posterior"
     "structures": {
+        # GI / Hepatic
         "liver": True,
         "gallbladder": True,
         "cystic_duct": True,
@@ -18,12 +21,87 @@ _anatomy_state = {
         "portal_vein": True,
         "duodenum": False,
         "pancreas": False,
+        # Thoracic
+        "right_lung": True,
+        "left_lung": True,
+        "trachea": True,
+        "bronchi": True,
+        "heart": True,
     },
 }
 
+def set_camera_view(view: str) -> dict[str, Any]:
+    """Change the camera view angle for the 3D model.
+
+    Args:
+        view: One of 'top', 'bottom', 'left', 'right', 'anterior', 'posterior', 'default'.
+    """
+    valid_views = ['top', 'bottom', 'left', 'right', 'anterior', 'posterior', 'default']
+    v = view.lower()
+    if v in valid_views:
+        _anatomy_state["camera_view"] = v
+        
+        # Automatically map views to fixed rotation matrices
+        if v == "top":
+            _anatomy_state["rotation"] = {"x": 90, "y": 0, "z": 0}
+        elif v == "bottom":
+            _anatomy_state["rotation"] = {"x": -90, "y": 0, "z": 0}
+        elif v == "left":
+            _anatomy_state["rotation"] = {"x": 0, "y": 90, "z": 0}
+        elif v == "right":
+            _anatomy_state["rotation"] = {"x": 0, "y": -90, "z": 0}
+        elif v == "posterior":
+            _anatomy_state["rotation"] = {"x": 0, "y": 180, "z": 0}
+        else: # default / anterior
+            _anatomy_state["rotation"] = {"x": 0, "y": 0, "z": 0}
+
+    _anatomy_state["visible"] = True
+    return _build_overlay(f"3D Anatomy — {view.title()} View")
+
+
+def zoom_in(percent: float = 20) -> dict[str, Any]:
+    """Zoom into the 3D model by a percentage.
+
+    Args:
+        percent: How much to zoom in, e.g. 10 means zoom in by 10%, 20 means 20%. Default is 20.
+    """
+    factor = 1.0 + (percent / 100.0)
+    _anatomy_state["zoom"] = min(_anatomy_state["zoom"] * factor, 5.0)  # max 5x
+    _anatomy_state["visible"] = True
+    return _build_overlay(f"3D Anatomy — Zoomed In {percent}%")
+
+
+def zoom_out(percent: float = 20) -> dict[str, Any]:
+    """Zoom out of the 3D model by a percentage.
+
+    Args:
+        percent: How much to zoom out, e.g. 10 means zoom out by 10%, 20 means 20%. Default is 20.
+    """
+    factor = 1.0 - (percent / 100.0)
+    _anatomy_state["zoom"] = max(_anatomy_state["zoom"] * factor, 0.2)  # min 0.2x
+    _anatomy_state["visible"] = True
+    return _build_overlay(f"3D Anatomy — Zoomed Out {percent}%")
+
+
+def _build_overlay(title: str) -> dict[str, Any]:
+    """Helper to build a consistent 3D model overlay response."""
+    return {
+        "tool": "3d_model_update",
+        "overlay": {
+            "type": "3d_model",
+            "title": title,
+            "content": {
+                "rotation": _anatomy_state["rotation"],
+                "zoom": _anatomy_state["zoom"],
+                "camera_view": _anatomy_state["camera_view"],
+                "structures": {k: v for k, v in _anatomy_state["structures"].items() if v},
+            },
+            "position": "bottom-right",
+        },
+    }
 
 def rotate_model(axis: str = "y", degrees: float = 45) -> dict[str, Any]:
-    """Rotate the 3D anatomy model.
+    """Rotate the 3D anatomy model relative to its current position.
 
     Args:
         axis: Rotation axis ('x', 'y', or 'z').
@@ -33,19 +111,7 @@ def rotate_model(axis: str = "y", degrees: float = 45) -> dict[str, Any]:
         _anatomy_state["rotation"][axis] = (_anatomy_state["rotation"][axis] + degrees) % 360
 
     _anatomy_state["visible"] = True
-    return {
-        "tool": "rotate_model",
-        "overlay": {
-            "type": "3d_model",
-            "title": "3D Anatomy",
-            "content": {
-                "rotation": _anatomy_state["rotation"],
-                "structures": {k: v for k, v in _anatomy_state["structures"].items() if v},
-            },
-            "position": "bottom-right",
-        },
-    }
-
+    return _build_overlay("3D Anatomy")
 
 def toggle_structure(structure: str, visible: bool | None = None) -> dict[str, Any]:
     """Toggle visibility of a specific anatomical structure.
@@ -69,50 +135,29 @@ def toggle_structure(structure: str, visible: bool | None = None) -> dict[str, A
 
         _anatomy_state["visible"] = True
         state = "visible" if _anatomy_state["structures"][matched] else "hidden"
-        return {
-            "tool": "toggle_structure",
-            "message": f"{matched.replace('_', ' ').title()} is now {state}.",
-            "overlay": {
-                "type": "3d_model",
-                "title": "3D Anatomy",
-                "content": {
-                    "toggled": matched,
-                    "state": state,
-                    "structures": {k: v for k, v in _anatomy_state["structures"].items() if v},
-                },
-                "position": "bottom-right",
-            },
-        }
+        result = _build_overlay("3D Anatomy")
+        result["message"] = f"{matched.replace('_', ' ').title()} is now {state}."
+        return result
     return {
         "tool": "toggle_structure",
         "error": f"Structure '{structure}' not found. Available: {list(_anatomy_state['structures'].keys())}",
     }
-
 
 def hide_3d() -> dict[str, Any]:
     """Remove the 3D anatomy overlay."""
     _anatomy_state["visible"] = False
     return {"tool": "hide_3d", "action": "hide_overlay", "overlay_type": "3d_model"}
 
-
 def reset_3d_view() -> dict[str, Any]:
-    """Reset the 3D model to default rotation and visibility."""
+    """Reset the 3D model to default rotation, zoom, and visibility."""
     _anatomy_state["rotation"] = {"x": 0, "y": 0, "z": 0}
+    _anatomy_state["zoom"] = 1.0
+    _anatomy_state["camera_view"] = "default"
     _anatomy_state["visible"] = True
     for key in _anatomy_state["structures"]:
         _anatomy_state["structures"][key] = key in [
             "liver", "gallbladder", "cystic_duct", "cystic_artery",
             "common_bile_duct", "common_hepatic_duct", "hepatic_artery", "portal_vein",
+            "right_lung", "left_lung", "trachea", "bronchi", "heart"
         ]
-    return {
-        "tool": "reset_3d_view",
-        "overlay": {
-            "type": "3d_model",
-            "title": "3D Anatomy — Reset",
-            "content": {
-                "rotation": _anatomy_state["rotation"],
-                "structures": {k: v for k, v in _anatomy_state["structures"].items() if v},
-            },
-            "position": "bottom-right",
-        },
-    }
+    return _build_overlay("3D Anatomy — Reset")

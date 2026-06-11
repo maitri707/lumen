@@ -23,7 +23,13 @@ TRAINING_DATA = {
         "show the model", "left side", "right side", "posterior", "anterior",
         "lung", "lungs", "lobes", "chest", "show me the right", "show me the left",
         "hide the liver", "what is this structure", "highlight the cystic duct",
-        "toggle visibility", "reset view", "rotate 90 degrees", "flip it"
+        "toggle visibility", "reset view", "rotate 90 degrees", "flip it",
+        "zoom in", "zoom out", "zoom in 10", "zoom in 20", "zoom in 50",
+        "zoom out 10", "zoom out 20", "zoom out 50", "make it bigger", "make it smaller",
+        "enlarge the model", "zoom into the model", "zoom out of the model",
+        "closer", "get closer", "move closer", "move back", "pull back",
+        "show me the top", "show me the bottom", "upper side", "lower side",
+        "camera view", "change the view", "view from the top", "view from the left"
     ],
     "complication": [
         "complication", "emergency", "we have a problem", "bleeding", "bile leak",
