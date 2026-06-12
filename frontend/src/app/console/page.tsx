@@ -310,23 +310,9 @@ export default function ConsolePage() {
 
       {/* ─── Clinical Displays Column (non-briefing overlays) ──────── */}
       {(() => {
-        const regularOverlays = overlays.filter((o) => o.type !== "briefing_patient_data");
         const briefingOverlays = overlays.filter((o) => o.type === "briefing_patient_data");
         return (
           <>
-            <div className={`${regularOverlays.length > 0 ? "w-[32rem] border-l border-slate-200 opacity-100" : "w-0 border-none opacity-0"} transition-all duration-300 bg-slate-50/80 flex flex-col overflow-y-auto sidebar-scrollbar shadow-inner shrink-0 relative z-10`}>
-              <div className="p-4 space-y-4 w-[32rem]">
-                {regularOverlays.map((overlay) => (
-                  <ClinicalCard
-                    key={overlay.type}
-                    overlay={overlay}
-                    onClose={() => setOverlays((prev) => prev.filter((o) => o.type !== overlay.type))}
-                    inline={true}
-                  />
-                ))}
-              </div>
-            </div>
-
             {/* ─── Patient Briefing Panel (second right panel) ────────── */}
             <div className={`${briefingOverlays.length > 0 ? "w-[26rem] border-l border-sky-100 opacity-100" : "w-0 border-none opacity-0"} transition-all duration-300 bg-gradient-to-b from-white to-sky-50/30 flex flex-col overflow-y-auto sidebar-scrollbar shadow-inner shrink-0 relative z-10`}>
               <div className="p-4 space-y-4 w-[26rem]">
@@ -349,35 +335,40 @@ export default function ConsolePage() {
         );
       })()}
       {/* ─── Clinical Displays Column ───────────────────────────────── */}
-      <div className={`${overlays.length > 0 ? "w-[32rem] border-l border-slate-200 opacity-100" : "w-0 border-none opacity-0"} transition-all duration-300 bg-slate-50/80 flex flex-col shadow-inner shrink-0 relative z-10 overflow-hidden`}>
-        {overlays.length > 0 && (
-          <div className="flex border-b border-slate-200 bg-white overflow-x-auto sidebar-scrollbar shrink-0">
-            {overlays.map((o) => (
-              <button 
-                key={o.type} 
-                onClick={() => setActiveTab(o.type)}
-                className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === o.type ? 'border-sky-500 text-sky-600 bg-sky-50/30' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
-              >
-                {o.title.split('—')[0].trim()}
-              </button>
-            ))}
+      {(() => {
+        const regularOverlays = overlays.filter((o) => o.type !== "briefing_patient_data");
+        return (
+          <div className={`${regularOverlays.length > 0 ? "w-[32rem] border-l border-slate-200 opacity-100" : "w-0 border-none opacity-0"} transition-all duration-300 bg-slate-50/80 flex flex-col shadow-inner shrink-0 relative z-10 overflow-hidden`}>
+            {regularOverlays.length > 0 && (
+              <div className="flex border-b border-slate-200 bg-white overflow-x-auto sidebar-scrollbar shrink-0">
+                {regularOverlays.map((o) => (
+                  <button 
+                    key={o.type} 
+                    onClick={() => setActiveTab(o.type)}
+                    className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === o.type ? 'border-sky-500 text-sky-600 bg-sky-50/30' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    {o.title.split('—')[0].trim()}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="p-4 w-[32rem] flex-1 overflow-y-auto sidebar-scrollbar">
+              {regularOverlays.filter(o => o.type === activeTab).map((overlay) => (
+                <ClinicalCard 
+                  key={overlay.type} 
+                  overlay={overlay} 
+                  onClose={() => {
+                    const newOverlays = overlays.filter((o) => o.type !== overlay.type);
+                    setOverlays(newOverlays);
+                    if (activeTab === overlay.type && newOverlays.length > 0) setActiveTab(newOverlays[newOverlays.length - 1].type);
+                  }} 
+                  inline={true}
+                />
+              ))}
+            </div>
           </div>
-        )}
-        <div className="p-4 w-[32rem] flex-1 overflow-y-auto sidebar-scrollbar">
-          {overlays.filter(o => o.type === activeTab).map((overlay) => (
-            <ClinicalCard 
-              key={overlay.type} 
-              overlay={overlay} 
-              onClose={() => {
-                const newOverlays = overlays.filter((o) => o.type !== overlay.type);
-                setOverlays(newOverlays);
-                if (activeTab === overlay.type && newOverlays.length > 0) setActiveTab(newOverlays[newOverlays.length - 1].type);
-              }} 
-              inline={true}
-            />
-          ))}
-        </div>
-      </div>
+        );
+      })()}
 
       {/* ─── System Controls Column ─────────────────────────────────── */}
       <div className="w-[20rem] transition-all duration-300 border-l border-slate-200 bg-white flex flex-col overflow-hidden shadow-xl shrink-0 z-20">
