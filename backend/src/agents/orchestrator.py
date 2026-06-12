@@ -215,16 +215,37 @@ Return ONLY the single word representing the agent name."""
             raw = raw.strip()
             if raw.startswith("```"):
                 raw = re.sub(r"```\w*\n?", "", raw).strip()
+            
+            # Auto-fix common LLM JSON syntax errors
+            if raw.endswith("]") and raw.startswith("{"):
+                raw = raw[:-1] + "}"
+                
             parsed = json.loads(raw)
 
             tool_name = parsed.get("tool")
             tool_result = None
-            if tool_name and tool_name in TOOL_REGISTRY:
+            
+            allowed_tools = {fn.__name__: fn for fn in specialist.tools}
+            
+            if tool_name and tool_name in allowed_tools:
                 try:
-                    tool_result = TOOL_REGISTRY[tool_name](**parsed.get("tool_args", {}))
+                    tool_result = allowed_tools[tool_name](**parsed.get("tool_args", {}))
                 except Exception as e:
                     logger.error(f"Tool error ({tool_name}): {e}")
                     tool_result = {"error": str(e)}
+            elif tool_name and tool_name not in allowed_tools:
+                logger.warning(f"Agent {agent_name} attempted to call unauthorized tool: {tool_name}")
+                if agent_name == "briefing" and "display_all_patient_data" in allowed_tools:
+                    logger.warning("Auto-correcting briefing agent to use display_all_patient_data")
+                    tool_result = allowed_tools["display_all_patient_data"]()
+                    tool_name = "display_all_patient_data"
+                else:
+                    tool_result = {"error": f"Tool '{tool_name}' not allowed for {agent_name}."}
+            elif not tool_name and agent_name == "briefing" and "display_all_patient_data" in allowed_tools:
+                # Fallback: Briefing agent MUST call display_all_patient_data
+                logger.warning("Briefing agent omitted tool call, auto-injecting display_all_patient_data")
+                tool_result = allowed_tools["display_all_patient_data"]()
+                tool_name = "display_all_patient_data"
 
             result = {
                 "agent": specialist.name,
@@ -245,9 +266,18 @@ Return ONLY the single word representing the agent name."""
                 response_text = match.group(1)
             else:
                 response_text = raw if raw and not str(raw).startswith("[LUMEN]") else f"I processed your {agent_name} request but had a formatting issue. Please try again."
+            
+            # Try to salvage tool if possible (especially for briefing)
+            tool_name = None
+            tool_result = None
+            allowed_tools = {fn.__name__: fn for fn in specialist.tools}
+            if agent_name == "briefing" and "display_all_patient_data" in allowed_tools:
+                logger.warning("Salvaging briefing agent response by forcefully executing display_all_patient_data")
+                tool_name = "display_all_patient_data"
+                tool_result = allowed_tools["display_all_patient_data"]()
                 
             self.conversation_history.append({"role": "assistant", "content": response_text})
-            return {"agent": specialist.name, "response": response_text, "tool": None, "tool_result": None}
+            return {"agent": specialist.name, "response": response_text, "tool": tool_name, "tool_result": tool_result}
 
 
 orchestrator = Orchestrator()
