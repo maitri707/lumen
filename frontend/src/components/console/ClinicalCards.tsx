@@ -22,15 +22,46 @@ export function ClinicalCard({ overlay, onClose, inline = false }: { overlay: an
       }
 
       return (
-        <div className="space-y-2">
-          {Object.entries(overlay.content).map(([key, value]) => (
-            <div key={key} className="flex justify-between border-b border-slate-100 pb-1">
-              <span className="text-slate-500 capitalize">{key.replace(/_/g, " ")}:</span>
-              <span className="font-medium text-slate-800 text-right">
-                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-              </span>
-            </div>
-          ))}
+        <div className="space-y-3">
+          {Object.entries(overlay.content).map(([key, value]) => {
+            if (key === 'id' || key === 'name') return null; // usually rendered in header or we can skip duplicate if needed, but let's keep it.
+            
+            let displayValue: React.ReactNode;
+            
+            if (Array.isArray(value)) {
+              displayValue = (
+                <div className="flex flex-wrap gap-1.5 justify-end w-2/3">
+                  {value.map((v, i) => (
+                    <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-semibold border border-slate-200 text-right">
+                      {String(v)}
+                    </span>
+                  ))}
+                </div>
+              );
+            } else if (typeof value === 'object' && value !== null) {
+              displayValue = (
+                <div className="w-full mt-2 grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  {Object.entries(value).map(([k, v]: [string, any]) => (
+                    <div key={k} className="flex flex-col bg-white p-1.5 rounded border border-slate-100">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{k}</span>
+                      <span className="text-xs font-semibold text-slate-700">
+                        {v?.value} <span className="text-[10px] text-slate-500 font-normal">{v?.unit}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            } else {
+              displayValue = <span className="font-medium text-slate-800 text-right w-2/3">{String(value)}</span>;
+            }
+
+            return (
+              <div key={key} className={`flex justify-between items-start border-b border-slate-100 pb-2 ${typeof value === 'object' && !Array.isArray(value) && value !== null ? 'flex-col' : ''}`}>
+                <span className="text-slate-500 capitalize text-xs font-semibold mt-0.5 shrink-0">{key.replace(/_/g, " ")}</span>
+                {displayValue}
+              </div>
+            );
+          })}
         </div>
       );
     }
@@ -188,6 +219,7 @@ export function ClinicalCard({ overlay, onClose, inline = false }: { overlay: an
         return <ThreeDViewer 
           rotation={overlay.content?.rotation} 
           zoom={overlay.content?.zoom}
+          pan={overlay.content?.pan}
           structures={overlay.content?.structures}
         />;
       }

@@ -7,6 +7,7 @@ from typing import Any
 _anatomy_state = {
     "visible": False,
     "rotation": {"x": 0, "y": 0, "z": 0},
+    "pan": {"x": 0, "y": 0},
     "zoom": 1.0,
     "camera_view": "default", # "top", "bottom", "left", "right", "anterior", "posterior"
     "structures": {
@@ -83,6 +84,27 @@ def zoom_out(percent: float = 20) -> dict[str, Any]:
     return _build_overlay(f"3D Anatomy — Zoomed Out {percent}%")
 
 
+def pan_model(direction: str, percent: float = 10) -> dict[str, Any]:
+    """Pan (move) the 3D model left, right, up, or down.
+    
+    Args:
+        direction: One of 'left', 'right', 'up', 'down'.
+        percent: How much to move it. Default is 10.
+    """
+    d = direction.lower()
+    if d == "left":
+        _anatomy_state["pan"]["x"] -= percent
+    elif d == "right":
+        _anatomy_state["pan"]["x"] += percent
+    elif d == "up":
+        _anatomy_state["pan"]["y"] += percent
+    elif d == "down":
+        _anatomy_state["pan"]["y"] -= percent
+        
+    _anatomy_state["visible"] = True
+    return _build_overlay(f"3D Anatomy — Panned {direction.title()} {percent}%")
+
+
 def _build_overlay(title: str) -> dict[str, Any]:
     """Helper to build a consistent 3D model overlay response."""
     return {
@@ -92,6 +114,7 @@ def _build_overlay(title: str) -> dict[str, Any]:
             "title": title,
             "content": {
                 "rotation": _anatomy_state["rotation"],
+                "pan": _anatomy_state["pan"],
                 "zoom": _anatomy_state["zoom"],
                 "camera_view": _anatomy_state["camera_view"],
                 "structures": {k: v for k, v in _anatomy_state["structures"].items() if v},
@@ -151,6 +174,7 @@ def hide_3d() -> dict[str, Any]:
 def reset_3d_view() -> dict[str, Any]:
     """Reset the 3D model to default rotation, zoom, and visibility."""
     _anatomy_state["rotation"] = {"x": 0, "y": 0, "z": 0}
+    _anatomy_state["pan"] = {"x": 0, "y": 0}
     _anatomy_state["zoom"] = 1.0
     _anatomy_state["camera_view"] = "default"
     _anatomy_state["visible"] = True
