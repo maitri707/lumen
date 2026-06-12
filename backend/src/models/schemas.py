@@ -82,30 +82,24 @@ class OverlayData(BaseModel):
 
 class PatientData(BaseModel):
     id: str = "PT-2024-0847"
-    name: str = "John Mitchell"
-    age: int = 62
+    name: str = "James Wilson"
+    age: int = 58
     sex: str = "Male"
-    weight_kg: float = 84.5
+    weight_kg: float = 72.0
     height_cm: float = 175.0
-    blood_type: str = "A+"
-    allergies: list[str] = Field(default_factory=lambda: ["Penicillin", "Latex"])
-    medications: list[str] = Field(default_factory=lambda: [
-        "Metoprolol 50mg BID",
-        "Lisinopril 10mg daily",
-        "Aspirin 81mg daily (held 7 days pre-op)",
-    ])
-    diagnosis: str = "Symptomatic cholelithiasis"
-    procedure: str = "Laparoscopic cholecystectomy"
-    labs: dict[str, Any] = Field(default_factory=lambda: {
-        "hemoglobin": {"value": 13.2, "unit": "g/dL", "normal": "12.0-17.5"},
-        "hematocrit": {"value": 39.8, "unit": "%", "normal": "36-51"},
-        "platelets": {"value": 245, "unit": "K/µL", "normal": "150-400"},
-        "inr": {"value": 1.1, "unit": "", "normal": "0.8-1.2"},
-        "creatinine": {"value": 0.9, "unit": "mg/dL", "normal": "0.7-1.3"},
-        "potassium": {"value": 4.1, "unit": "mEq/L", "normal": "3.5-5.0"},
-        "glucose": {"value": 105, "unit": "mg/dL", "normal": "70-110"},
-    })
-    estimated_blood_volume_ml: float = 5920.0  # ~70 mL/kg × 84.5 kg
+    blood_type: str = "O+"
+    allergies: list[str] = Field(default_factory=lambda: ["Penicillin", "Codeine"])
+    allergy_details: list[dict[str, str]] = Field(default_factory=list)
+    medications: list[str] = Field(default_factory=list)
+    medication_notes: list[str] = Field(default_factory=list)
+    diagnosis: str = "Stage II NSCLC — left upper lobe"
+    staging: str = "cT2N1M0"
+    procedure: str = "VATS left upper lobectomy"
+    surgical_system: str = "da Vinci Si"
+    labs: dict[str, Any] = Field(default_factory=dict)
+    vitals: dict[str, Any] = Field(default_factory=dict)
+    procedural_context: dict[str, Any] = Field(default_factory=dict)
+    estimated_blood_volume_ml: float = 5040.0
 
 
 # ─── Operative Log ───────────────────────────────────────────────────────────

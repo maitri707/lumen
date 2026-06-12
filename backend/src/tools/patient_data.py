@@ -8,33 +8,38 @@ from ..models.schemas import PatientData, OverlayData
 MOCK_EHR = {
     "PT-2024-0847": PatientData(
         id="PT-2024-0847",
-        name="John Mitchell",
-        age=62, sex="Male", weight_kg=84.5, height_cm=175.0, blood_type="A+",
-        allergies=["Penicillin", "Latex"],
-        medications=["Metoprolol 50mg BID", "Lisinopril 10mg daily", "Aspirin 81mg daily (held)"],
-        diagnosis="Non-Small Cell Lung Cancer (NSCLC) - Right Upper Lobe",
-        procedure="VATS Right Upper Lobectomy",
-        estimated_blood_volume_ml=5915.0
-    ),
-    "PT-2024-0912": PatientData(
-        id="PT-2024-0912",
-        name="Sarah Jenkins",
-        age=28, sex="Female", weight_kg=65.0, height_cm=165.0, blood_type="O+",
-        allergies=["None"],
-        medications=["Albuterol inhaler PRN"],
-        diagnosis="Pulmonary Nodule - Left Lower Lobe",
-        procedure="VATS Left Lower Lobe Wedge Resection",
-        estimated_blood_volume_ml=4225.0
-    ),
-    "PT-2024-0955": PatientData(
-        id="PT-2024-0955",
-        name="Robert Chen",
-        age=45, sex="Male", weight_kg=78.2, height_cm=180.0, blood_type="B-",
-        allergies=["Sulfa drugs"],
-        medications=["Atorvastatin 20mg daily"],
-        diagnosis="Spontaneous Pneumothorax with Apical Blebs",
-        procedure="Thoracoscopic Bullectomy and Pleurodesis",
-        estimated_blood_volume_ml=5474.0
+        name="James Wilson",
+        age=58, sex="Male", weight_kg=72.0, height_cm=175.0, blood_type="O+",
+        allergies=["Penicillin", "Codeine"],
+        allergy_details=[
+            {"drug": "Penicillin", "reaction": "rash"},
+            {"drug": "Codeine", "reaction": "nausea"},
+        ],
+        medications=["Metoprolol 25mg QD", "Lisinopril 10mg QD", "Aspirin 81mg QD (held)"],
+        medication_notes=["Aspirin held 7 days pre-op"],
+        diagnosis="Stage II NSCLC — left upper lobe",
+        staging="cT2N1M0",
+        procedure="VATS left upper lobectomy",
+        surgical_system="da Vinci Si",
+        labs={
+            "hemoglobin": {"value": 11.2, "unit": "g/dL", "normal": "13.5-17.5", "status": "low", "note": "Low — pre-op anemia noted"},
+            "creatinine": {"value": 0.9, "unit": "mg/dL", "normal": "0.7-1.3", "status": "normal", "note": "Normal renal function"},
+            "platelets": {"value": 210, "unit": "K/μL", "normal": "150-400", "status": "normal", "note": "Adequate for surgery"},
+            "inr": {"value": 1.1, "unit": "", "normal": "0.8-1.2", "status": "normal", "note": "Normal coagulation"},
+        },
+        vitals={
+            "blood_pressure": {"value": "118/74", "unit": "mmHg", "note": "Last recorded 0630"},
+        },
+        procedural_context={
+            "phase_name": "Vascular Dissection",
+            "warnings": ["⚠ CRITICAL: Left phrenic nerve runs anterior to hilum"],
+            "steps": [
+                "Identify lingular PA branch before upper division PA",
+                "Confirm 2 clips + 1 stapler load per vessel minimum",
+                "Superior PV — confirm no common trunk with lower",
+            ],
+        },
+        estimated_blood_volume_ml=5040.0
     )
 }
 
@@ -46,11 +51,7 @@ def get_patient() -> PatientData:
     return MOCK_EHR[_active_patient_id]
 
 def select_patient(query: str) -> dict[str, Any]:
-    """Search for and select a patient from the database by name or ID.
-    
-    Args:
-        query: Patient name or ID to load.
-    """
+    """Search for and select a patient from the database."""
     global _active_patient_id
     query_lower = query.lower()
     
@@ -68,7 +69,6 @@ def select_patient(query: str) -> dict[str, Any]:
                         "id": pt.id,
                         "diagnosis": pt.diagnosis,
                         "procedure": pt.procedure,
-                        "alerts": f"{len(pt.allergies)} known allergies" if pt.allergies != ["None"] else "No known allergies"
                     },
                     position="top-left",
                 ).model_dump(),
@@ -76,7 +76,7 @@ def select_patient(query: str) -> dict[str, Any]:
             
     return {
         "tool": "select_patient",
-        "error": f"Could not find patient matching '{query}'. Available patients: John Mitchell, Sarah Jenkins, Robert Chen."
+        "error": f"Could not find patient matching '{query}'."
     }
 
 def list_patients() -> dict[str, Any]:
@@ -101,39 +101,56 @@ def list_patients() -> dict[str, Any]:
     }
 
 
-def display_patient_data(field: Optional[str] = None) -> dict[str, Any]:
-    """Display a specific patient data field or summary on the surgical overlay.
+def _build_briefing_content(pt: PatientData) -> dict[str, Any]:
+    """Build the structured briefing content payload from patient data."""
+    return {
+        "name": pt.name,
+        "id": pt.id,
+        "age": pt.age,
+        "sex": pt.sex,
+        "weight_kg": pt.weight_kg,
+        "blood_type": pt.blood_type,
+        "diagnosis": pt.diagnosis,
+        "staging": pt.staging,
+        "procedure": pt.procedure,
+        "surgical_system": pt.surgical_system,
+        "labs": pt.labs,
+        "vitals": pt.vitals,
+        "allergies": pt.allergies,
+        "allergy_details": pt.allergy_details,
+        "medications": pt.medications,
+        "medication_notes": pt.medication_notes,
+        "procedural_context": pt.procedural_context,
+    }
 
-    Args:
-        field: Specific field to display (e.g., 'labs', 'allergies', 'medications').
-               If None, shows key summary.
-    """
+
+def display_patient_data(field: Optional[str] = None) -> dict[str, Any]:
+    """Display a specific patient data field or summary on the surgical overlay."""
     pt = get_patient()
     if field:
-        data = pt.model_dump()
-        value = data.get(field, f"Unknown field: {field}")
+        full_content = _build_briefing_content(pt)
+        # Keep identity fields and the specific requested field
+        filtered_content = {
+            "name": full_content["name"],
+            "id": full_content["id"],
+            "blood_type": full_content["blood_type"],
+            field: full_content.get(field)
+        }
         return {
             "tool": "display_patient_data",
             "overlay": OverlayData(
                 type="patient_data",
                 title=f"Patient — {field.replace('_', ' ').title()}",
-                content={"field": field, "value": value},
+                content=filtered_content,
                 position="top-left",
             ).model_dump(),
         }
     return {
         "tool": "display_patient_data",
         "overlay": OverlayData(
-            type="patient_data",
+            type="briefing_patient_data",
             title="Patient Summary",
-            content={
-                "name": pt.name,
-                "id": pt.id,
-                "age": pt.age,
-                "diagnosis": pt.diagnosis,
-                "procedure": pt.procedure,
-                "blood_type": pt.blood_type,
-            },
+            content=_build_briefing_content(pt),
             position="top-left",
         ).model_dump(),
     }
@@ -145,9 +162,9 @@ def display_all_patient_data() -> dict[str, Any]:
     return {
         "tool": "display_all_patient_data",
         "overlay": OverlayData(
-            type="patient_data",
+            type="briefing_patient_data",
             title="Full Patient Record",
-            content=pt.model_dump(),
+            content=_build_briefing_content(pt),
             position="top-left",
         ).model_dump(),
     }
@@ -158,5 +175,5 @@ def hide_patient_data() -> dict[str, Any]:
     return {
         "tool": "hide_patient_data",
         "action": "hide_overlay",
-        "overlay_type": "patient_data",
+        "overlay_type": "briefing_patient_data",
     }

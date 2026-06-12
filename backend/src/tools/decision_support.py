@@ -74,3 +74,28 @@ def get_anatomy_context(structure: Optional[str] = None, phase: Optional[str] = 
     p = phase or "dissection"
     info = danger_zones.get(p, danger_zones["dissection"])
     return {"tool": "get_anatomy_context", "overlay": {"type": "anatomy_context", "title": f"Anatomy — {p.replace('_', ' ').title()}", "content": {"phase": p, "at_risk_structures": info["structures"], "warnings": info["warnings"], "requested_structure": structure}, "position": "bottom-right"}}
+
+def generate_handoff_report(**kwargs) -> dict[str, Any]:
+    """Generate and display the SBAR patient handoff report on screen."""
+    from .patient_data import get_patient
+    pt = get_patient()
+    
+    mock_sbar = [
+        "S: 58 y.o. male undergoing VATS Left Upper Lobectomy for Stage II NSCLC; currently in Vascular Dissection.",
+        "B: Pre-op anemia (Hgb 11.2); Allergies: Penicillin, Codeine; Aspirin held pre-op.",
+        "A: Key milestone logged: pulmonary vessel divided with stapler at 10:07. EBL is unlogged/unknown.",
+        "R: Ensure remaining hilar structures are clearly identified. Log EBL if known. Proceed toward bronchial dissection."
+    ]
+    
+    return {
+        "tool": "generate_handoff_report",
+        "overlay": {
+            "type": "handoff_report",
+            "title": "Patient Handoff",
+            "content": {
+                "procedural_context": pt.procedural_context,
+                "sbar": mock_sbar
+            },
+            "position": "top-right"
+        }
+    }

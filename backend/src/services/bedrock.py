@@ -60,7 +60,7 @@ class BedrockService:
                 "action": "Display patient data",
                 "tool": "display_all_patient_data",
                 "tool_args": {},
-                "response": "Here is the pre-operative case briefing for patient John Doe. He has a known allergy to penicillin. I have displayed the patient record on screen."
+                "response": "Displaying patient vitals and data. Hemoglobin is 11.2, which is low, pre-op anemia noted. Creatinine is 0.9, showing normal renal function. Platelets are 210, adequate for surgery. INR is 1.1, normal coagulation. Blood Pressure is 118 over 74, last recorded at 0630. Patient is a 58-year-old male, weighing 72 kg. Diagnosis is Stage 2 Non-Small Cell Lung Cancer of the left upper lobe, staging cT2 N1 M0. Procedure is VATS left upper lobectomy using the da Vinci Si. Allergies include Penicillin causing rash, and Codeine causing nausea. Medications are Metoprolol 25mg, Lisinopril 10mg, and Aspirin 81mg, which was held 7 days pre-op. For the procedural context, we are at Port Placement and Access. Warning: Avoid intercostal vessels during trocar insertion. The steps are: 1, keep CO2 insufflation pressure at or below 12 mmHg. 2, ensure all 3 trocars are seated and sealed. 3, confirm camera white-balance and focus. And 4, position the DLT with the left lung deflated."
             })
         elif "timeout" in system_prompt:
             return json.dumps({

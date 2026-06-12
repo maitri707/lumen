@@ -12,9 +12,9 @@ logger = logging.getLogger("lumen.classifier")
 TRAINING_DATA = {
     "patient_manager": [
         "load patient", "select patient", "start case for", "we are operating on",
-        "switch patient", "patient is", "set patient", "patients list", "patient list",
+        "switch patient", "set patient", "patients list", "patient list",
         "schedule", "who are the patients", "list of patients", "working on", "open patient",
-        "patient", "who is the patient", "what patient are we doing", "pull up the patient",
+        "who is the patient", "what patient are we doing", "pull up the patient",
         "let's work on", "give me the list of patients", "who is scheduled"
     ],
     "anatomy_spotter": [
@@ -57,12 +57,16 @@ TRAINING_DATA = {
     "timeout": [
         "time out", "timeout", "who checklist", "surgical safety checklist", "checklist",
         "run the checklist", "let's do a time out", "confirm identity", "verify patient",
-        "start timeout"
+        "start timeout", "confirm", "confirmed", "already confirmed", "check off",
+        "mark as done", "patient name procedure confirmed", "team members introduced",
+        "antibiotics given"
     ],
     "briefing": [
-        "briefing", "give me the briefing", "pre-op", "patient history", "labs",
-        "what are the labs", "diagnosis", "what are we doing today", "procedure details",
-        "history and physical", "vital signs"
+        "briefing", "give me the briefing", "pre-op", "patient history", "labs", "lab results",
+        "what are the labs", "patient labs", "patient's latest lab results", "show patient record",
+        "full patient record", "diagnosis", "what are we doing today", "procedure details",
+        "history and physical", "vital signs", "patient vitals", "patient data", "clinical data",
+        "patient details", "give me details on the patients", "details of the patient"
     ],
     "handoff": [
         "handoff", "hand-off", "sbar", "prepare a handoff", "summarize the case",

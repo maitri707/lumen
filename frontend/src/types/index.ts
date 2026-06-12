@@ -54,13 +54,10 @@ export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "er
 
 // Agent definitions for display
 export const AGENT_LIST: AgentInfo[] = [
-  { id: "orchestrator", name: "Orchestrator", description: "Routes commands to specialist agents", category: "orchestrator", capabilities: ["Wake-word filtering", "AutoFlow routing", "Multi-turn", "8 specialist agents", "24 tools"] },
+  { id: "orchestrator", name: "Orchestrator", description: "Routes commands to specialist agents", category: "orchestrator", capabilities: ["Wake-word filtering", "AutoFlow routing", "Multi-turn", "6 specialist agents", "24 tools"] },
   { id: "briefing", name: "Briefing", description: "Pre-Op Case Briefing", category: "protocol", capabilities: ["Labs & vitals", "Allergies", "Phase briefing"] },
   { id: "timeout", name: "WHO Timeout", description: "WHO Safety Timeout", category: "protocol", capabilities: ["WHO checklist", "Patient ID confirm", "Allergy check"] },
   { id: "report", name: "Op. Report", description: "Operative Report Generator", category: "protocol", capabilities: ["Auto-documentation", "Event log", "SBAR format"] },
-  { id: "complication", name: "Complication Advisor", description: "Complication Protocol Agent", category: "decision", capabilities: ["Bleeding response", "Conversion protocol", "Phase-aware"] },
-  { id: "ebl_tracker", name: "EBL Tracker", description: "Blood Loss Tracker", category: "decision", capabilities: ["EBL tracking", "Running total", "Transfusion alert"] },
-  { id: "drug_checker", name: "Drug Checker", description: "Intraoperative Drug Safety", category: "decision", capabilities: ["Allergy check", "Drug interactions", "Pre-dosing"] },
   { id: "anatomy_spotter", name: "Anatomy Spotter", description: "Anatomy Identification Agent", category: "decision", capabilities: ["Danger zones", "Structure ID", "Phase-aware"] },
   { id: "handoff", name: "Handoff", description: "Patient Handoff — SBAR", category: "protocol", capabilities: ["SBAR format", "Shift handoff", "Auto-summary"] },
   { id: "screen_advisor", name: "Visual Assistant", description: "Visual Console Intelligence", category: "visual", capabilities: ["Screen capture", "Vision analysis", "Live context"] },
