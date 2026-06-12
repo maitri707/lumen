@@ -83,7 +83,7 @@ class Orchestrator:
                 + "\n\nAvailable tools:\n"
                 + "\n".join(tool_descriptions)
                 + """\n\nRespond ONLY with a valid JSON object in this exact format:
-{"action": "brief description", "tool": "tool_name_or_null", "tool_args": {"arg_name": "value"}, "response": "verbal response to user"}"""
+{"action": "brief description", "tool": "tool_name_or_null", "tool_args": {"arg_name": "value"}, "response": "verbal response to user", "auto_log_summary": "If this interaction represents a clinically important event that should be documented in the operative report, provide a 1-sentence summary here. Otherwise, set to null."}"""
             )
 
     async def process_command(self, text: str, screen_frame_b64: Optional[str] = None) -> dict[str, Any]:
@@ -182,10 +182,35 @@ Return ONLY the single word representing the agent name."""
 
         # Special case: screen_advisor with an active frame uses vision service directly
         if agent_name == "screen_advisor" and screen_frame_b64:
-            result_vision = await vision_service.analyze_frame(screen_frame_b64, question=text)
+            from ..tools.procedure import get_surgical_phase
+            from ..tools.op_log import get_full_log
+            
+            phase_info = get_surgical_phase().get("phase_display", "Unknown")
+            logs = get_full_log()
+            recent_logs = "\n".join([f"- {l.timestamp.strftime('%H:%M:%S')} ({l.phase.value}): {l.event}" for l in logs[-3:]]) if logs else "No recent events."
+            
+            vision_prompt = (
+                f"{pt_context}\n\n"
+                f"Current Surgical Phase: {phase_info}\n"
+                f"Recent Operative Events:\n{recent_logs}\n\n"
+                f"User Question: {text}"
+            )
+            
+            result_vision = await vision_service.analyze_frame(screen_frame_b64, question=vision_prompt)
+            
+            # Check for vision auto-log prefix
+            analysis_text = result_vision["analysis"]
+            if analysis_text.startswith("[AUTO-LOG:"):
+                end_idx = analysis_text.find("]")
+                if end_idx != -1:
+                    log_summary = analysis_text[10:end_idx].strip()
+                    from ..tools.op_log import log_event
+                    log_event(event=log_summary, phase=get_surgical_phase().get("phase", "dissection"), agent=specialist.name)
+                    analysis_text = analysis_text[end_idx+1:].strip()
+            
             response_payload = {
                 "agent": specialist.name,
-                "response": result_vision["analysis"],
+                "response": analysis_text,
                 "tool": "display_analyzed_frame",
                 "tool_result": {
                     "overlay": {
@@ -254,6 +279,14 @@ Return ONLY the single word representing the agent name."""
                 "tool": tool_name,
                 "tool_result": tool_result,
             }
+            
+            # Auto-log if the agent decided it was critical
+            auto_log = parsed.get("auto_log_summary")
+            if auto_log:
+                from ..tools.procedure import get_surgical_phase
+                from ..tools.op_log import log_event
+                log_event(event=auto_log, phase=get_surgical_phase().get("phase", "dissection"), agent=specialist.name)
+                
             self.conversation_history.append({"role": "assistant", "content": result.get("response", "")})
             return result
         except Exception as e:

@@ -14,6 +14,7 @@ export default function ConsolePage() {
   const activeAgentRef = useRef<string>("");
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [overlays, setOverlays] = useState<OverlayData[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("");
 
   // Keep ref in sync
   useEffect(() => {
@@ -26,6 +27,7 @@ export default function ConsolePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const wsRef = useRef(getWebSocket());
   const conversationEndRef = useRef<HTMLDivElement>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Connect WebSocket
   useEffect(() => {
@@ -48,28 +50,42 @@ export default function ConsolePage() {
         setConversation((prev) => [...prev, { role: "agent", content: data.response, agent: data.agent, timestamp: msg.timestamp }]);
         
         if (data.audio_base64) {
+          if (currentAudioRef.current) {
+            currentAudioRef.current.pause();
+            currentAudioRef.current.currentTime = 0;
+          }
           const audio = new Audio("data:audio/mp3;base64," + data.audio_base64);
+          currentAudioRef.current = audio;
           audio.play().catch(e => console.error("Audio playback failed:", e));
         } else if (data.response) {
           // Fallback to browser's built-in Web Speech API if AWS Polly is not configured
           if (typeof window !== "undefined" && "speechSynthesis" in window) {
+            window.speechSynthesis.cancel(); // Interrupt previous speech
             const utterance = new SpeechSynthesisUtterance(data.response);
             window.speechSynthesis.speak(utterance);
           }
         }
 
         if (data.tool_result?.overlay) {
+          const newOverlay = data.tool_result!.overlay as OverlayData;
           setOverlays((prev) => {
-            const existing = prev.findIndex((o) => o.type === (data.tool_result!.overlay as OverlayData).type);
-            const newOverlay = data.tool_result!.overlay as OverlayData;
+            const existing = prev.findIndex((o) => o.type === newOverlay.type);
             if (existing >= 0) { const updated = [...prev]; updated[existing] = newOverlay; return updated; }
             return [...prev, newOverlay];
           });
+          setActiveTab(newOverlay.type);
         }
         if (data.tool_result?.action === "hide_overlay") {
-          setOverlays((prev) => prev.filter((o) => o.type !== data.tool_result!.overlay_type));
+          setOverlays((prev) => {
+            const updated = prev.filter((o) => o.type !== data.tool_result!.overlay_type);
+            if (activeTab === data.tool_result!.overlay_type && updated.length > 0) setActiveTab(updated[updated.length - 1].type);
+            return updated;
+          });
         }
-        if (data.tool_result?.action === "hide_all") setOverlays([]);
+        if (data.tool_result?.action === "hide_all") {
+          setOverlays([]);
+          setActiveTab("");
+        }
       }),
       ws.on("tool_result", (msg) => {
         const toolName = msg.data.tool;
@@ -81,12 +97,13 @@ export default function ConsolePage() {
 
         const result = msg.data.result as Record<string, unknown>;
         if (result?.overlay) {
+          const overlay = result.overlay as OverlayData;
           setOverlays((prev) => {
-            const overlay = result.overlay as OverlayData;
             const existing = prev.findIndex((o) => o.type === overlay.type);
             if (existing >= 0) { const updated = [...prev]; updated[existing] = overlay; return updated; }
             return [...prev, overlay];
           });
+          setActiveTab(overlay.type);
         }
       }),
     ];
@@ -331,6 +348,36 @@ export default function ConsolePage() {
           </>
         );
       })()}
+      {/* ─── Clinical Displays Column ───────────────────────────────── */}
+      <div className={`${overlays.length > 0 ? "w-[32rem] border-l border-slate-200 opacity-100" : "w-0 border-none opacity-0"} transition-all duration-300 bg-slate-50/80 flex flex-col shadow-inner shrink-0 relative z-10 overflow-hidden`}>
+        {overlays.length > 0 && (
+          <div className="flex border-b border-slate-200 bg-white overflow-x-auto sidebar-scrollbar shrink-0">
+            {overlays.map((o) => (
+              <button 
+                key={o.type} 
+                onClick={() => setActiveTab(o.type)}
+                className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === o.type ? 'border-sky-500 text-sky-600 bg-sky-50/30' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+              >
+                {o.title.split('—')[0].trim()}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="p-4 w-[32rem] flex-1 overflow-y-auto sidebar-scrollbar">
+          {overlays.filter(o => o.type === activeTab).map((overlay) => (
+            <ClinicalCard 
+              key={overlay.type} 
+              overlay={overlay} 
+              onClose={() => {
+                const newOverlays = overlays.filter((o) => o.type !== overlay.type);
+                setOverlays(newOverlays);
+                if (activeTab === overlay.type && newOverlays.length > 0) setActiveTab(newOverlays[newOverlays.length - 1].type);
+              }} 
+              inline={true}
+            />
+          ))}
+        </div>
+      </div>
 
       {/* ─── System Controls Column ─────────────────────────────────── */}
       <div className="w-[20rem] transition-all duration-300 border-l border-slate-200 bg-white flex flex-col overflow-hidden shadow-xl shrink-0 z-20">

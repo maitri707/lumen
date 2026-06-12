@@ -58,6 +58,43 @@ function ZoomController({ zoom }: { zoom: number }) {
   return null;
 }
 
+/**
+ * PanController: Programmatically moves the camera left/right/up/down.
+ */
+function PanController({ pan }: { pan: { x: number, y: number } }) {
+  const { camera, controls } = useThree();
+  const prevPan = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (prevPan.current.x === pan.x && prevPan.current.y === pan.y) return;
+
+    const dx = (pan.x - prevPan.current.x) * 0.05;
+    const dy = (pan.y - prevPan.current.y) * 0.05;
+
+    // Calculate movement in camera's local space
+    // If user says "move right" (dx > 0), the object goes right, so camera must go LEFT.
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    
+    const delta = new THREE.Vector3();
+    delta.addScaledVector(right, -dx);
+    delta.addScaledVector(up, -dy); // if dy > 0 (move up), camera must go DOWN
+
+    // Move both camera and its orbit target to prevent unintended rotation
+    camera.position.add(delta);
+    
+    if (controls && (controls as any).target) {
+      (controls as any).target.add(delta);
+      (controls as any).update();
+    }
+    
+    camera.updateProjectionMatrix();
+    prevPan.current = { ...pan };
+  }, [pan, camera, controls]);
+
+  return null;
+}
+
 function Loader() {
   return (
     <Html center>
@@ -74,10 +111,12 @@ function Loader() {
 export function ThreeDViewer({
   rotation,
   zoom = 1.0,
+  pan,
   structures
 }: {
   rotation?: { x: number; y: number; z: number };
   zoom?: number;
+  pan?: { x: number; y: number };
   structures?: Record<string, boolean>;
 }) {
   const [mounted, setMounted] = useState(false);
@@ -106,6 +145,7 @@ export function ThreeDViewer({
           <Environment preset="city" />
         </Suspense>
         <ZoomController zoom={zoom} />
+        <PanController pan={pan || {x:0, y:0}} />
         <OrbitControls enablePan={true} enableZoom={true} makeDefault />
       </Canvas>
     </div>

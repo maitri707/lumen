@@ -29,7 +29,10 @@ TRAINING_DATA = {
         "enlarge the model", "zoom into the model", "zoom out of the model",
         "closer", "get closer", "move closer", "move back", "pull back",
         "show me the top", "show me the bottom", "upper side", "lower side",
-        "camera view", "change the view", "view from the top", "view from the left"
+        "camera view", "change the view", "view from the top", "view from the left",
+        "pan", "move left", "move right", "move up", "move down",
+        "move to the right", "move to the left", "shift right", "shift left",
+        "pan down", "pan up", "pan left", "pan right", "move down 10", "move up 10"
     ],
     "complication": [
         "complication", "emergency", "we have a problem", "bleeding", "bile leak",

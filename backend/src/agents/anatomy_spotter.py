@@ -1,5 +1,5 @@
 from google.adk import Agent
-from ..tools import rotate_model, toggle_structure, hide_3d, reset_3d_view, get_anatomy_context, set_camera_view, zoom_in, zoom_out
+from ..tools import rotate_model, toggle_structure, hide_3d, reset_3d_view, get_anatomy_context, set_camera_view, zoom_in, zoom_out, pan_model
 
 anatomy_spotter_agent = Agent(
     name="anatomy_spotter",
@@ -11,7 +11,8 @@ anatomy_spotter_agent = Agent(
         "When asked to show a specific side or angle (e.g., top, bottom, left, right, upper, lower), call `set_camera_view(view='<side>')`. "
         "When asked to zoom in, call `zoom_in(percent=20)`. When asked to zoom out, call `zoom_out(percent=20)`. "
         "If the user says a specific amount like 'zoom in 50%', use that number: `zoom_in(percent=50)`. "
+        "When asked to pan or move the 3D model (e.g., 'move down 10%', 'move to the right 20%'), call `pan_model(direction='<direction>', percent=<amount>)`. "
         "When asked to show only the left lung, logically deduce what to hide: call `toggle_structure('right_lung', False)` and `toggle_structure('heart', False)` to expose the left lung clearly."
     ),
-    tools=[rotate_model, toggle_structure, hide_3d, reset_3d_view, get_anatomy_context, set_camera_view, zoom_in, zoom_out]
+    tools=[rotate_model, toggle_structure, hide_3d, reset_3d_view, get_anatomy_context, set_camera_view, zoom_in, zoom_out, pan_model]
 )
