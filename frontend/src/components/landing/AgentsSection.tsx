@@ -33,7 +33,7 @@ export default function AgentsSection() {
           <h2 className="text-4xl md:text-6xl font-extrabold text-zinc-900 leading-tight">
             A Singular Brain.
             <br />
-            <span className="text-zinc-400 font-medium">Nine Dedicated Experts.</span>
+            <span className="text-zinc-400 font-medium">Six Dedicated Experts.</span>
           </h2>
           <p className="mt-8 text-xl text-zinc-600 leading-relaxed font-light">
             The central intelligence engine instantly parses verbal requests and delegates them to the appropriate domain expert—be it for compliance tracking, vital cross-checks, procedural scribing, or imaging manipulation—with zero manual input required.

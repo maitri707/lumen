@@ -54,7 +54,7 @@ export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "er
 
 // Agent definitions for display
 export const AGENT_LIST: AgentInfo[] = [
-  { id: "orchestrator", name: "Orchestrator", description: "Routes commands to specialist agents", category: "orchestrator", capabilities: ["Wake-word filtering", "AutoFlow routing", "Multi-turn", "8 specialist agents", "24 tools"] },
+  { id: "orchestrator", name: "Orchestrator", description: "Routes commands to specialist agents", category: "orchestrator", capabilities: ["Wake-word filtering", "AutoFlow routing", "Multi-turn", "6 specialist agents", "24 tools"] },
   { id: "briefing", name: "Briefing", description: "Pre-Op Case Briefing", category: "protocol", capabilities: ["Labs & vitals", "Allergies", "Phase briefing"] },
   { id: "timeout", name: "WHO Timeout", description: "WHO Safety Timeout", category: "protocol", capabilities: ["WHO checklist", "Patient ID confirm", "Allergy check"] },
   { id: "report", name: "Op. Report", description: "Operative Report Generator", category: "protocol", capabilities: ["Auto-documentation", "Event log", "SBAR format"] },
