@@ -308,40 +308,13 @@ export default function ConsolePage() {
         </div>
       </div>
 
-      {/* ─── Clinical Displays Column (non-briefing overlays) ──────── */}
-      {(() => {
-        const briefingOverlays = overlays.filter((o) => o.type === "briefing_patient_data");
-        return (
-          <>
-            {/* ─── Patient Briefing Panel (second right panel) ────────── */}
-            <div className={`${briefingOverlays.length > 0 ? "w-[26rem] border-l border-sky-100 opacity-100" : "w-0 border-none opacity-0"} transition-all duration-300 bg-gradient-to-b from-white to-sky-50/30 flex flex-col overflow-y-auto sidebar-scrollbar shadow-inner shrink-0 relative z-10`}>
-              <div className="p-4 space-y-4 w-[26rem]">
-                {/* Panel header */}
-                <div className="flex items-center gap-2 pb-2 border-b border-sky-100">
-                  <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></div>
-                  <span className="text-[10px] font-extrabold tracking-widest text-sky-600 uppercase">Patient Data</span>
-                </div>
-                {briefingOverlays.map((overlay) => (
-                  <ClinicalCard
-                    key={overlay.type}
-                    overlay={overlay}
-                    onClose={() => setOverlays((prev) => prev.filter((o) => o.type !== overlay.type))}
-                    inline={true}
-                  />
-                ))}
-              </div>
-            </div>
-          </>
-        );
-      })()}
       {/* ─── Clinical Displays Column ───────────────────────────────── */}
       {(() => {
-        const regularOverlays = overlays.filter((o) => o.type !== "briefing_patient_data");
         return (
-          <div className={`${regularOverlays.length > 0 ? "w-[32rem] border-l border-slate-200 opacity-100" : "w-0 border-none opacity-0"} transition-all duration-300 bg-slate-50/80 flex flex-col shadow-inner shrink-0 relative z-10 overflow-hidden`}>
-            {regularOverlays.length > 0 && (
+          <div className={`${overlays.length > 0 ? "w-[32rem] border-l border-slate-200 opacity-100" : "w-0 border-none opacity-0"} transition-all duration-300 bg-slate-50/80 flex flex-col shadow-inner shrink-0 relative z-10 overflow-hidden`}>
+            {overlays.length > 0 && (
               <div className="flex border-b border-slate-200 bg-white overflow-x-auto sidebar-scrollbar shrink-0">
-                {regularOverlays.map((o) => (
+                {overlays.map((o) => (
                   <button 
                     key={o.type} 
                     onClick={() => setActiveTab(o.type)}
@@ -353,7 +326,7 @@ export default function ConsolePage() {
               </div>
             )}
             <div className="p-4 w-[32rem] flex-1 overflow-y-auto sidebar-scrollbar">
-              {regularOverlays.filter(o => o.type === activeTab).map((overlay) => (
+              {overlays.filter(o => o.type === activeTab).map((overlay) => (
                 <ClinicalCard 
                   key={overlay.type} 
                   overlay={overlay} 

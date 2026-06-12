@@ -505,7 +505,7 @@ export function ClinicalCard({ overlay, onClose, inline = false }: { overlay: an
       );
     }
 
-    if (overlay.type === "ct_viewer" || overlay.type === "3d_anatomy" || overlay.type === "ct_slice" || overlay.type === "3d_model") {
+    if (overlay.type === "ct_viewer" || overlay.type === "3d_anatomy" || overlay.type === "ct_slice" || overlay.type === "3d_model" || overlay.type === "ct_image") {
       // If it's a 3D model, render our real Three.js viewer
       if (overlay.type === "3d_anatomy" || overlay.type === "3d_model") {
         return <ThreeDViewer 

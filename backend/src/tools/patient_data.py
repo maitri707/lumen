@@ -128,14 +128,20 @@ def display_patient_data(field: Optional[str] = None) -> dict[str, Any]:
     """Display a specific patient data field or summary on the surgical overlay."""
     pt = get_patient()
     if field:
-        data = pt.model_dump()
-        value = data.get(field, f"Unknown field: {field}")
+        full_content = _build_briefing_content(pt)
+        # Keep identity fields and the specific requested field
+        filtered_content = {
+            "name": full_content["name"],
+            "id": full_content["id"],
+            "blood_type": full_content["blood_type"],
+            field: full_content.get(field)
+        }
         return {
             "tool": "display_patient_data",
             "overlay": OverlayData(
-                type="briefing_patient_data",
+                type="patient_data",
                 title=f"Patient — {field.replace('_', ' ').title()}",
-                content=_build_briefing_content(pt),
+                content=filtered_content,
                 position="top-left",
             ).model_dump(),
         }

@@ -181,7 +181,18 @@ Return ONLY the single word representing the agent name."""
         specialist = AGENTS[agent_name]
 
         # Special case: screen_advisor with an active frame uses vision service directly
-        if agent_name == "screen_advisor" and screen_frame_b64:
+        if agent_name == "screen_advisor":
+            if not screen_frame_b64:
+                # User asked a vision question but screen sharing is off
+                response_payload = {
+                    "agent": specialist.name,
+                    "response": "I cannot see the surgical field. Please start screen sharing so I can analyze the view.",
+                    "tool": None,
+                    "tool_result": None
+                }
+                self.conversation_history.append({"role": "assistant", "content": response_payload["response"]})
+                return response_payload
+                
             from ..tools.procedure import get_surgical_phase
             from ..tools.op_log import get_full_log
             
@@ -282,12 +293,15 @@ Return ONLY the single word representing the agent name."""
             
             # Auto-log if the agent decided it was critical
             auto_log = parsed.get("auto_log_summary")
-            if auto_log:
+            if auto_log and str(auto_log).lower() != "null":
                 from ..tools.procedure import get_surgical_phase
                 from ..tools.op_log import log_event
                 log_event(event=auto_log, phase=get_surgical_phase().get("phase", "dissection"), agent=specialist.name)
                 
-            self.conversation_history.append({"role": "assistant", "content": result.get("response", "")})
+            response_str = result.get("response", "")
+            if response_str is None:
+                response_str = ""
+            self.conversation_history.append({"role": "assistant", "content": response_str})
             return result
         except Exception as e:
             raw_err = raw[:200] if isinstance(raw, str) else str(raw)
@@ -309,8 +323,9 @@ Return ONLY the single word representing the agent name."""
                 tool_name = "display_all_patient_data"
                 tool_result = allowed_tools["display_all_patient_data"]()
                 
+            if response_text is None:
+                response_text = "I processed your request but encountered an error. Please try again."
             self.conversation_history.append({"role": "assistant", "content": response_text})
             return {"agent": specialist.name, "response": response_text, "tool": tool_name, "tool_result": tool_result}
-
 
 orchestrator = Orchestrator()

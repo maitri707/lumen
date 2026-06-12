@@ -26,8 +26,45 @@ Do NOT describe the UI layout, panels, or empty spaces unless specifically asked
 Be concise and clinical in your responses. Use medical terminology appropriately."""
 
 
+from ..tools.patient_data import get_patient
+from ..tools.op_log import get_full_log
+
 class VisionService:
     """Analyzes screen-share frames using Bedrock + Claude vision."""
+
+    def _build_contextual_prompt(self) -> str:
+        pt = get_patient()
+        logs = get_full_log()
+        
+        recent_events = ""
+        if logs:
+            recent_events = "\n".join([f"- [{e.timestamp.strftime('%H:%M:%S')}] {e.phase.value.upper()}: {e.event}" for e in logs[-5:]])
+        else:
+            recent_events = "No events logged yet."
+
+        ctx = pt.procedural_context or {}
+        phase_name = ctx.get("phase_name", "Unknown")
+        steps = "\n".join([f"  * {s}" for s in ctx.get("steps", [])])
+        warnings = "\n".join([f"  * {w}" for w in ctx.get("warnings", [])])
+
+        context_block = f"""
+---
+CURRENT SURGICAL CONTEXT:
+Patient: {pt.name} (Age {pt.age}, {pt.sex})
+Procedure: {pt.procedure}
+Diagnosis: {pt.diagnosis}
+Current Phase: {phase_name}
+Expected Steps in this Phase:
+{steps}
+Clinical Warnings:
+{warnings}
+
+RECENT OPERATIVE EVENTS (Last 5):
+{recent_events}
+---
+Always interpret the visual feed through the lens of this specific procedure and phase.
+"""
+        return VISION_SYSTEM_PROMPT + "\n" + context_block
 
     async def analyze_frame(
         self,
@@ -38,7 +75,7 @@ class VisionService:
         user_msg = question or "Describe what is visible on this surgical console screen. Identify all panels, data, and instruments visible."
 
         response = await bedrock_service.invoke_with_vision(
-            system_prompt=VISION_SYSTEM_PROMPT,
+            system_prompt=self._build_contextual_prompt(),
             user_message=user_msg,
             image_base64=image_base64,
         )
@@ -55,7 +92,7 @@ class VisionService:
     ) -> str:
         """Answer a specific question about what's on screen."""
         return await bedrock_service.invoke_with_vision(
-            system_prompt=VISION_SYSTEM_PROMPT,
+            system_prompt=self._build_contextual_prompt(),
             user_message=f"Question about what's on screen: {question}",
             image_base64=image_base64,
         )
