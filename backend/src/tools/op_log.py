@@ -40,3 +40,22 @@ def capture_surgical_photo(label: str = "CVS confirmation") -> dict[str, Any]:
 
 def get_full_log() -> list[EventLogEntry]:
     return _event_log.copy()
+
+def generate_operative_report() -> dict[str, Any]:
+    from .patient_data import get_patient, _build_briefing_content
+    pt = get_patient()
+    entries = _event_log.copy()
+    
+    return {
+        "tool": "generate_operative_report",
+        "overlay": {
+            "type": "operative_report",
+            "title": "Comprehensive Operative Report",
+            "content": {
+                "patient": _build_briefing_content(pt),
+                "events": [{"time": e.timestamp.strftime("%H:%M:%S"), "phase": e.phase.value, "event": e.event, "agent": e.agent.value, "details": e.details} for e in entries],
+                "total_events": len(entries)
+            },
+            "position": "top-right"
+        }
+    }

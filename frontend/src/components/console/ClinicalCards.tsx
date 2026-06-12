@@ -292,6 +292,31 @@ export function ClinicalCard({ overlay, onClose, inline = false }: { overlay: an
       );
     }
 
+    if (overlay.type === "operative_report") {
+      const patientContent = overlay.content.patient || {};
+      const events = overlay.content.events || [];
+      return (
+        <div className="space-y-6">
+          <div className="border border-sky-100 bg-sky-50/20 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-sky-100/50 px-3 py-1.5 border-b border-sky-100">
+              <p className="text-[10px] font-bold tracking-widest text-sky-700 uppercase">Patient Summary</p>
+            </div>
+            <div className="p-3">
+              <ClinicalCard overlay={{type: "briefing_patient_data", content: patientContent}} onClose={() => {}} inline={true} />
+            </div>
+          </div>
+          <div className="border border-slate-100 bg-slate-50/20 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-slate-100/50 px-3 py-1.5 border-b border-slate-100">
+              <p className="text-[10px] font-bold tracking-widest text-slate-600 uppercase">Operative Log</p>
+            </div>
+            <div className="p-3">
+              <ClinicalCard overlay={{type: "event_log", content: {events}}} onClose={() => {}} inline={true} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (overlay.type === "event_log") {
       const events = overlay.content.events || [];
       return (
