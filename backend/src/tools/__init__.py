@@ -4,7 +4,7 @@ from .ct_imaging import navigate_ct, jump_to_landmark, hide_ct
 from .anatomy_3d import rotate_model, toggle_structure, hide_3d, reset_3d_view, set_camera_view, zoom_in, zoom_out, pan_model
 from .procedure import get_surgical_phase, get_who_checklist, confirm_checklist_item, hide_surgical_checklist
 from .op_log import log_event, show_event_log, hide_event_log, capture_surgical_photo, get_full_log, generate_operative_report
-from .decision_support import update_ebl, get_ebl_summary, check_drug_safety, get_complication_protocol, get_anatomy_context
+from .decision_support import update_ebl, get_ebl_summary, check_drug_safety, get_complication_protocol, get_anatomy_context, generate_handoff_report
 from .screen_share import start_screen_share, stop_screen_share, is_screen_sharing, hide_all_overlays, show_only_ar
 
 TOOL_REGISTRY = {
@@ -18,6 +18,6 @@ TOOL_REGISTRY = {
     "log_event": log_event, "show_event_log": show_event_log, "hide_event_log": hide_event_log, "generate_operative_report": generate_operative_report,
     "capture_surgical_photo": capture_surgical_photo, "update_ebl": update_ebl, "get_ebl_summary": get_ebl_summary,
     "check_drug_safety": check_drug_safety, "get_complication_protocol": get_complication_protocol,
-    "get_anatomy_context": get_anatomy_context, "hide_all_overlays": hide_all_overlays, "show_only_ar": show_only_ar,
+    "get_anatomy_context": get_anatomy_context, "generate_handoff_report": generate_handoff_report, "hide_all_overlays": hide_all_overlays, "show_only_ar": show_only_ar,
     "start_screen_share": start_screen_share, "stop_screen_share": stop_screen_share,
 }

@@ -31,13 +31,12 @@ MOCK_EHR = {
             "blood_pressure": {"value": "118/74", "unit": "mmHg", "note": "Last recorded 0630"},
         },
         procedural_context={
-            "phase_name": "Port Placement & Access",
-            "warnings": ["⚠ Avoid intercostal vessels during trocar insertion"],
+            "phase_name": "Vascular Dissection",
+            "warnings": ["⚠ CRITICAL: Left phrenic nerve runs anterior to hilum"],
             "steps": [
-                "CO2 insufflation pressure ≤12 mmHg",
-                "All 3 trocars seated and sealed",
-                "Camera white-balance and focus confirmed",
-                "DLT positioned — left lung deflated",
+                "Identify lingular PA branch before upper division PA",
+                "Confirm 2 clips + 1 stapler load per vessel minimum",
+                "Superior PV — confirm no common trunk with lower",
             ],
         },
         estimated_blood_volume_ml=5040.0

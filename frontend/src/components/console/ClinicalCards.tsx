@@ -317,6 +317,64 @@ export function ClinicalCard({ overlay, onClose, inline = false }: { overlay: an
       );
     }
 
+    if (overlay.type === "handoff_report") {
+      const ctx = overlay.content.procedural_context || {};
+      const ctxSteps: string[] = ctx.steps || [];
+      const ctxWarnings: string[] = ctx.warnings || [];
+      const sbar: string[] = overlay.content.sbar || [];
+
+      return (
+        <div className="space-y-6">
+          {/* Procedural Context */}
+          {ctx.phase_name && (
+            <div>
+              <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-2.5">Procedural Context</p>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <p className="font-bold text-slate-800 text-[13px] mb-2.5">{ctx.phase_name}</p>
+
+                {ctxWarnings.map((w: string, i: number) => (
+                  <div key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-2">
+                    <span className="text-amber-500 text-sm mt-0.5">⚠</span>
+                    <p className="text-[12px] text-amber-800 font-medium">{w.replace(/^⚠\s*/, "")}</p>
+                  </div>
+                ))}
+
+                <div className="space-y-1.5 mt-1">
+                  {ctxSteps.map((step: string, i: number) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold flex items-center justify-center border border-sky-200 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <p className="text-[12px] text-slate-700 font-medium leading-snug">{step}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SBAR */}
+          {sbar.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-2.5">Handoff — SBAR</p>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                <div className="space-y-2">
+                  {sbar.map((point: string, i: number) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center border border-emerald-200 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <p className="text-[12px] text-slate-800 font-medium leading-snug">{point}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (overlay.type === "event_log") {
       const events = overlay.content.events || [];
       return (
