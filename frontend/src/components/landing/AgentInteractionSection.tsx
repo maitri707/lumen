@@ -4,64 +4,95 @@ import { useEffect, useState } from "react";
 
 const scenarios = [
   {
+    id: "who-timeout",
+    name: "Scenario 1: WHO Timeout",
+    description: "Demonstrates mandatory safety compliance before incision.",
+    steps: [
+      {
+        title: "Initiation",
+        desc: "Surgeon says 'Lumen, initiate WHO Timeout.'",
+        activeNodes: ["orchestrator"],
+        connections: []
+      },
+      {
+        title: "Patient Verification",
+        desc: "Orchestrator tasks the Pre-Op Briefing Agent to verify patient identity and procedure from the EHR.",
+        activeNodes: ["orchestrator", "briefing"],
+        connections: ["briefing"]
+      },
+      {
+        title: "Checklist Execution",
+        desc: "Orchestrator tasks the WHO Timeout Agent to verbally run through the required checklist.",
+        activeNodes: ["orchestrator", "timeout"],
+        connections: ["timeout"]
+      },
+      {
+        title: "Final Sign-off",
+        desc: "Orchestrator logs the successful timeout completion timestamp with the Op Report Agent.",
+        activeNodes: ["orchestrator", "report"],
+        connections: ["report"]
+      }
+    ]
+  },
+  {
     id: "critical-event",
-    name: "Scenario 1: Critical Event",
-    description: "Watch how the swarm handles a critical event without blocking the surgeon.",
+    name: "Scenario 2: Critical Vitals Drop",
+    description: "Demonstrates real-time crisis management.",
     steps: [
       {
         title: "Incoming Command",
-        desc: "Lead Orchestrator receives: 'BP dropping, administering 5mg Epinephrine.'",
+        desc: "Surgeon: 'BP dropping, administering 5mg Epinephrine.'",
         activeNodes: ["orchestrator"],
         connections: []
       },
       {
         title: "Parallel Delegation",
-        desc: "Orchestrator immediately passes context to the Real-Time Assistant and Post-Op Analyst.",
-        activeNodes: ["orchestrator", "assistant", "analyst"],
-        connections: ["assistant", "analyst"]
+        desc: "Orchestrator tasks Briefing Agent (check EHR for contraindications) and Op Report Agent (log event).",
+        activeNodes: ["orchestrator", "briefing", "report"],
+        connections: ["briefing", "report"]
       },
       {
         title: "Real-Time Verification",
-        desc: "Assistant checks EHR for contraindications and returns 'SAFE TO ADMINISTER'.",
-        activeNodes: ["assistant", "orchestrator"],
-        connections: ["assistant"]
+        desc: "Briefing Agent returns 'SAFE TO ADMINISTER. No contraindications.'",
+        activeNodes: ["briefing", "orchestrator"],
+        connections: ["briefing"]
       },
       {
         title: "Event Logging",
-        desc: "Analyst successfully appends the administration event to the operative report.",
-        activeNodes: ["analyst"],
+        desc: "Op Report Agent timestamps and appends the 5mg push to the final draft.",
+        activeNodes: ["report"],
         connections: []
       }
     ]
   },
   {
-    id: "pre-op",
-    name: "Scenario 2: Pre-Op Planning",
-    description: "Surgeon asks to review the 3D surgical plan and patient anatomy before incision.",
+    id: "post-op",
+    name: "Scenario 3: Post-Op Documentation",
+    description: "Demonstrates administrative automation.",
     steps: [
       {
-        title: "Surgeon Request",
-        desc: "'Lumen, pull up the 3D resection plan for this patient.'",
+        title: "Completion",
+        desc: "Surgeon says 'Lumen, surgery complete. Generate report.'",
         activeNodes: ["orchestrator"],
         connections: []
       },
       {
-        title: "Data Retrieval",
-        desc: "Orchestrator tasks the Pre-Op Planner to fetch the patient's MRI data.",
-        activeNodes: ["orchestrator", "planner"],
-        connections: ["planner"]
+        title: "Data Aggregation",
+        desc: "Orchestrator signals the Op Report Agent.",
+        activeNodes: ["orchestrator", "report"],
+        connections: ["report"]
       },
       {
-        title: "Anatomy Analysis",
-        desc: "Anatomy Spotter highlights the tumor margins on the 3D model.",
-        activeNodes: ["orchestrator", "anatomy"],
-        connections: ["anatomy"]
+        title: "Drafting",
+        desc: "Op Report Agent compiles the WHO Timeout logs, all vital events, and surgical notes into a standard SBAR format.",
+        activeNodes: ["report"],
+        connections: []
       },
       {
-        title: "Visual Delivery",
-        desc: "Both agents return the data to the Orchestrator, which displays it on the OR monitors.",
-        activeNodes: ["orchestrator"],
-        connections: ["planner", "anatomy"]
+        title: "EMR Sync",
+        desc: "The finalized report is pushed directly into the hospital EMR system.",
+        activeNodes: ["report"],
+        connections: []
       }
     ]
   }
@@ -120,13 +151,13 @@ export default function AgentInteractionSection() {
               className="absolute inset-0 w-full h-full pointer-events-none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              {/* Orchestrator to Planner (Top Left) */}
+              {/* Orchestrator to Briefing (Top Left) */}
               <line
                 x1="50%" y1="50%" x2="25%" y2="25%"
-                stroke={currentStep.connections?.includes("planner") ? "#8b5cf6" : "#1e293b"}
+                stroke={currentStep.connections?.includes("briefing") ? "#8b5cf6" : "#1e293b"}
                 strokeWidth="2"
                 strokeDasharray="6 6"
-                className={`transition-colors duration-500 ${currentStep.connections?.includes("planner") ? "animate-[dash_1s_linear_infinite]" : ""}`}
+                className={`transition-colors duration-500 ${currentStep.connections?.includes("briefing") ? "animate-[dash_1s_linear_infinite]" : ""}`}
               />
               {/* Orchestrator to Anatomy (Bottom Left) */}
               <line
@@ -136,21 +167,21 @@ export default function AgentInteractionSection() {
                 strokeDasharray="6 6"
                 className={`transition-colors duration-500 ${currentStep.connections?.includes("anatomy") ? "animate-[dash_1s_linear_infinite]" : ""}`}
               />
-              {/* Orchestrator to Assistant (Top Right) */}
+              {/* Orchestrator to Timeout (Top Right) */}
               <line
                 x1="50%" y1="50%" x2="75%" y2="25%"
-                stroke={currentStep.connections?.includes("assistant") ? "#0ea5e9" : "#1e293b"}
+                stroke={currentStep.connections?.includes("timeout") ? "#0ea5e9" : "#1e293b"}
                 strokeWidth="2"
                 strokeDasharray="6 6"
-                className={`transition-colors duration-500 ${currentStep.connections?.includes("assistant") ? "animate-[dash_1s_linear_infinite]" : ""}`}
+                className={`transition-colors duration-500 ${currentStep.connections?.includes("timeout") ? "animate-[dash_1s_linear_infinite]" : ""}`}
               />
-              {/* Orchestrator to Analyst (Bottom Right) */}
+              {/* Orchestrator to Report (Bottom Right) */}
               <line
                 x1="50%" y1="50%" x2="75%" y2="75%"
-                stroke={currentStep.connections?.includes("analyst") ? "#10b981" : "#1e293b"}
+                stroke={currentStep.connections?.includes("report") ? "#10b981" : "#1e293b"}
                 strokeWidth="2"
                 strokeDasharray="6 6"
-                className={`transition-colors duration-500 ${currentStep.connections?.includes("analyst") ? "animate-[dash_1s_linear_infinite]" : ""}`}
+                className={`transition-colors duration-500 ${currentStep.connections?.includes("report") ? "animate-[dash_1s_linear_infinite]" : ""}`}
               />
             </svg>
 
@@ -183,14 +214,14 @@ export default function AgentInteractionSection() {
               </div>
             </div>
 
-            {/* Top Right: Real-Time Assistant */}
+            {/* Top Right: WHO Timeout Agent */}
             <div
-              className={`absolute top-[25%] left-[75%] -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center transition-all duration-500 ${currentStep.activeNodes.includes("assistant") ? "scale-110" : "scale-100 opacity-60"}`}
+              className={`absolute top-[25%] left-[75%] -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center transition-all duration-500 ${currentStep.activeNodes.includes("timeout") ? "scale-110" : "scale-100 opacity-60"}`}
             >
               <div
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-xl relative ${currentStep.activeNodes.includes("assistant") ? "bg-indigo-600 border-indigo-400 shadow-indigo-500/50" : "bg-slate-800 border-slate-700"}`}
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-xl relative ${currentStep.activeNodes.includes("timeout") ? "bg-indigo-600 border-indigo-400 shadow-indigo-500/50" : "bg-slate-800 border-slate-700"}`}
               >
-                {currentStep.activeNodes.includes("assistant") && (
+                {currentStep.activeNodes.includes("timeout") && (
                   <div className="absolute inset-0 rounded-2xl bg-indigo-400 animate-ping opacity-20" />
                 )}
                 <svg
@@ -200,26 +231,22 @@ export default function AgentInteractionSection() {
                   strokeWidth={1.5}
                   viewBox="0 0 24 24"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
                 </svg>
               </div>
               <div className="mt-2 text-[10px] text-slate-300 font-bold uppercase tracking-widest text-center">
-                Real-Time<br />Assistant
+                WHO Timeout<br />Agent
               </div>
             </div>
 
-            {/* Bottom Right: Post-Op Analyst */}
+            {/* Bottom Right: Op Report Agent */}
             <div
-              className={`absolute top-[75%] left-[75%] -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center transition-all duration-500 ${currentStep.activeNodes.includes("analyst") ? "scale-110" : "scale-100 opacity-60"}`}
+              className={`absolute top-[75%] left-[75%] -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center transition-all duration-500 ${currentStep.activeNodes.includes("report") ? "scale-110" : "scale-100 opacity-60"}`}
             >
               <div
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-xl relative ${currentStep.activeNodes.includes("analyst") ? "bg-teal-600 border-teal-400 shadow-teal-500/50" : "bg-slate-800 border-slate-700"}`}
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-xl relative ${currentStep.activeNodes.includes("report") ? "bg-teal-600 border-teal-400 shadow-teal-500/50" : "bg-slate-800 border-slate-700"}`}
               >
-                {currentStep.activeNodes.includes("analyst") && (
+                {currentStep.activeNodes.includes("report") && (
                   <div className="absolute inset-0 rounded-2xl bg-teal-400 animate-ping opacity-20" />
                 )}
                 <svg
@@ -237,36 +264,32 @@ export default function AgentInteractionSection() {
                 </svg>
               </div>
               <div className="mt-2 text-[10px] text-slate-300 font-bold uppercase tracking-widest text-center">
-                Post-Op<br />Analyst
+                Op. Report<br />Agent
               </div>
             </div>
 
-            {/* Top Left: Pre-Op Planner */}
+            {/* Top Left: Pre-Op Briefing Agent */}
             <div
-              className={`absolute top-[25%] left-[25%] -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center transition-all duration-500 ${currentStep.activeNodes.includes("planner") ? "scale-110" : "scale-100 opacity-60"}`}
+              className={`absolute top-[25%] left-[25%] -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center transition-all duration-500 ${currentStep.activeNodes.includes("briefing") ? "scale-110" : "scale-100 opacity-60"}`}
             >
               <div
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-xl relative ${currentStep.activeNodes.includes("planner") ? "bg-purple-600 border-purple-400 shadow-purple-500/50" : "bg-slate-800 border-slate-700"}`}
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-xl relative ${currentStep.activeNodes.includes("briefing") ? "bg-purple-600 border-purple-400 shadow-purple-500/50" : "bg-slate-800 border-slate-700"}`}
               >
-                {currentStep.activeNodes.includes("planner") && (
+                {currentStep.activeNodes.includes("briefing") && (
                   <div className="absolute inset-0 rounded-2xl bg-purple-400 animate-ping opacity-20" />
                 )}
                 <svg
-                  className={`w-7 h-7 ${currentStep.activeNodes.includes("planner") ? "text-white" : "text-slate-400"}`}
+                  className={`w-7 h-7 ${currentStep.activeNodes.includes("briefing") ? "text-white" : "text-slate-400"}`}
                   fill="none"
                   stroke="currentColor"
                   strokeWidth={1.5}
                   viewBox="0 0 24 24"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3l1.5 1.5 3-3.75"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                 </svg>
               </div>
               <div className="mt-2 text-[10px] text-slate-300 font-bold uppercase tracking-widest text-center">
-                Pre-Op<br />Planner
+                Pre-Op Briefing<br />Agent
               </div>
             </div>
 

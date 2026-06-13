@@ -77,7 +77,7 @@ export default function HomePage() {
                     href="#agents"
                     className="hover:text-sky-600 transition-colors"
                   >
-                    Pre-Op Planner
+                    Pre-Op Briefing
                   </a>
                 </li>
                 <li>
@@ -85,7 +85,7 @@ export default function HomePage() {
                     href="#agents"
                     className="hover:text-sky-600 transition-colors"
                   >
-                    Real-Time Assistant
+                    WHO Timeout
                   </a>
                 </li>
                 <li>
@@ -93,7 +93,7 @@ export default function HomePage() {
                     href="#agents"
                     className="hover:text-sky-600 transition-colors"
                   >
-                    Post-Op Analyst
+                    Op. Report
                   </a>
                 </li>
                 <li>
@@ -128,6 +128,16 @@ export default function HomePage() {
                     className="hover:text-sky-600 transition-colors"
                   >
                     Amazon Bedrock
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://aws.amazon.com/polly/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-sky-600 transition-colors"
+                  >
+                    Amazon Polly
                   </a>
                 </li>
                 <li>
