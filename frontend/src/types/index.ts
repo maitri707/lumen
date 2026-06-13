@@ -59,6 +59,7 @@ export const AGENT_LIST: AgentInfo[] = [
   { id: "timeout", name: "WHO Timeout", description: "WHO Safety Timeout", category: "protocol", capabilities: ["WHO checklist", "Patient ID confirm", "Allergy check"] },
   { id: "report", name: "Op. Report", description: "Operative Report Generator", category: "protocol", capabilities: ["Auto-documentation", "Event log", "SBAR format"] },
   { id: "anatomy_spotter", name: "Anatomy Spotter", description: "Anatomy Identification Agent", category: "decision", capabilities: ["Danger zones", "Structure ID", "Phase-aware"] },
+  { id: "drug_checker", name: "Drug Checker", description: "Medication & Allergy Safety", category: "decision", capabilities: ["Allergy checks", "Contraindications", "Dosage"] },
   { id: "handoff", name: "Handoff", description: "Patient Handoff — SBAR", category: "protocol", capabilities: ["SBAR format", "Shift handoff", "Auto-summary"] },
   { id: "screen_advisor", name: "Visual Assistant", description: "Visual Console Intelligence", category: "visual", capabilities: ["Screen capture", "Vision analysis", "Live context"] },
 ];

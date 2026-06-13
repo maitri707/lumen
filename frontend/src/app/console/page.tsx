@@ -1,15 +1,161 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { AGENT_LIST, TOOL_CATEGORIES, ConnectionStatus, ConversationMessage, AgentResponse, OverlayData } from "@/types";
+import {
+  AGENT_LIST,
+  TOOL_CATEGORIES,
+  ConnectionStatus,
+  ConversationMessage,
+  AgentResponse,
+  OverlayData,
+  AgentInfo,
+} from "@/types";
 import { getWebSocket } from "@/lib/websocket";
 import { ScreenShareManager } from "@/lib/screenShare";
 import { ClinicalCard } from "@/components/console/ClinicalCards";
 
+const AGENT_EXAMPLES: Record<string, string[]> = {
+  orchestrator: [
+    "Switch to James Wilson",
+    "What can you do?",
+    "Stop screen sharing",
+  ],
+  briefing: [
+    "Give me a pre-op briefing",
+    "What's this patient's history?",
+    "Summarize today's procedure",
+  ],
+  timeout: [
+    "Start the WHO timeout",
+    "Patient identity confirmed",
+    "Are there any allergies?",
+  ],
+  report: [
+    "Generate the operative report",
+    "Log a bleeding event",
+    "Show me the event log",
+  ],
+  anatomy_spotter: [
+    "Show the left lung 3D model",
+    "Identify danger zones",
+    "Highlight the pulmonary artery",
+  ],
+  drug_checker: [
+    "Is it safe to give Heparin?",
+    "Check patient allergies",
+    "What is the dosage for Propofol?",
+  ],
+  handoff: ["Give me a PACU handoff", "Summarize this case for the next shift"],
+  screen_advisor: [
+    "What is happening on the screen?",
+    "Analyze the current view",
+  ],
+};
+
+const AgentTooltipItem = ({
+  a,
+  activeAgent,
+}: {
+  a: AgentInfo;
+  activeAgent: string;
+}) => {
+  const isActive = activeAgent === a.id;
+  const examples = AGENT_EXAMPLES[a.id] || [];
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+
+  let colors =
+    "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50";
+  let textClass = "text-[11px] font-medium";
+
+  if (a.category === "orchestrator") {
+    colors = isActive
+      ? "bg-sky-50 text-sky-600 border-sky-200 shadow-sm"
+      : "border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800";
+    textClass = "text-xs font-semibold px-3 py-1.5";
+  } else if (a.category === "protocol") {
+    colors = isActive
+      ? "border-sky-300 bg-sky-50 text-sky-600 shadow-sm"
+      : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50";
+    textClass = "text-xs font-medium px-2 py-1.5";
+  } else if (a.category === "decision") {
+    colors = isActive
+      ? "border-amber-300 bg-amber-50 text-amber-700 shadow-sm"
+      : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50";
+    textClass = "text-[11px] font-medium px-2 py-1.5";
+  } else if (a.category === "visual") {
+    colors = isActive
+      ? "border-violet-300 bg-violet-50 text-violet-700 shadow-sm"
+      : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50";
+    textClass = "text-xs font-medium px-2 py-1.5";
+  }
+
+  const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (examples.length === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHoverPos({
+      x: rect.left - 12, // 12px gap to the left of the button
+      y: rect.top + rect.height / 2, // vertical center
+    });
+  };
+
+  return (
+    <>
+      <div
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setHoverPos(null)}
+        className={`rounded-lg border text-center cursor-default transition-all ${textClass} ${colors}`}
+      >
+        {a.name}
+      </div>
+
+      {hoverPos && (
+        <div
+          style={{
+            position: "fixed",
+            left: hoverPos.x,
+            top: hoverPos.y,
+            transform: "translate(-100%, -50%)",
+            zIndex: 99999,
+          }}
+          className="w-56 bg-white border border-slate-200 shadow-xl rounded-xl text-left pointer-events-none animate-in fade-in duration-150"
+        >
+          <div className="p-3 border-b border-slate-100 bg-slate-50 rounded-t-xl">
+            <p className="text-[9px] font-bold tracking-widest text-emerald-600 uppercase flex items-center gap-1.5 mb-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{" "}
+              TRY SAYING...
+            </p>
+            <h4 className="text-sm font-semibold text-slate-800">{a.name}</h4>
+          </div>
+          <div className="p-3 bg-white rounded-b-xl">
+            <ul className="space-y-2">
+              {examples.map((ex, i) => (
+                <li
+                  key={i}
+                  className="text-xs text-slate-600 flex items-start gap-1.5 leading-relaxed"
+                >
+                  <span className="text-emerald-500 font-bold mt-[1px]">›</span>{" "}
+                  {ex}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {/* Arrow pointing to the right */}
+          <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-3 bg-white border-t border-r border-slate-200 rotate-45 shadow-[2px_-2px_2px_rgba(0,0,0,0.02)]"></div>
+        </div>
+      )}
+    </>
+  );
+};
+
 export default function ConsolePage() {
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("disconnected");
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [agentActivity, setAgentActivity] = useState<string>("Waiting for connection...");
+  const [agentActivity, setAgentActivity] = useState<string>(
+    "Waiting for connection...",
+  );
   const [activeAgent, setActiveAgent] = useState<string>("orchestrator");
   const activeAgentRef = useRef<string>("");
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
@@ -37,18 +183,29 @@ export default function ConsolePage() {
       ws.on("status", (msg) => {
         const s = msg.data.status as ConnectionStatus;
         setConnectionStatus(s);
-        if (s === "connected") setAgentActivity("LUMEN online. Ready for commands.");
+        if (s === "connected")
+          setAgentActivity("LUMEN online. Ready for commands.");
       }),
       ws.on("agent_activity", (msg) => {
         setAgentActivity(msg.data.message as string);
         setActiveAgent(msg.data.agent as string);
       }),
       ws.on("agent_response", (msg) => {
-        const data = msg.data as unknown as AgentResponse & { audio_base64?: string };
+        const data = msg.data as unknown as AgentResponse & {
+          audio_base64?: string;
+        };
         setAgentActivity(`${data.agent}: Response delivered`);
         setActiveAgent(data.agent);
-        setConversation((prev) => [...prev, { role: "agent", content: data.response, agent: data.agent, timestamp: msg.timestamp }]);
-        
+        setConversation((prev) => [
+          ...prev,
+          {
+            role: "agent",
+            content: data.response,
+            agent: data.agent,
+            timestamp: msg.timestamp,
+          },
+        ]);
+
         if (data.audio_base64) {
           if (currentAudioRef.current) {
             currentAudioRef.current.pause();
@@ -56,7 +213,7 @@ export default function ConsolePage() {
           }
           const audio = new Audio("data:audio/mp3;base64," + data.audio_base64);
           currentAudioRef.current = audio;
-          audio.play().catch(e => console.error("Audio playback failed:", e));
+          audio.play().catch((e) => console.error("Audio playback failed:", e));
         } else if (data.response) {
           // Fallback to browser's built-in Web Speech API if AWS Polly is not configured
           if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -70,15 +227,25 @@ export default function ConsolePage() {
           const newOverlay = data.tool_result!.overlay as OverlayData;
           setOverlays((prev) => {
             const existing = prev.findIndex((o) => o.type === newOverlay.type);
-            if (existing >= 0) { const updated = [...prev]; updated[existing] = newOverlay; return updated; }
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = newOverlay;
+              return updated;
+            }
             return [...prev, newOverlay];
           });
           setActiveTab(newOverlay.type);
         }
         if (data.tool_result?.action === "hide_overlay") {
           setOverlays((prev) => {
-            const updated = prev.filter((o) => o.type !== data.tool_result!.overlay_type);
-            if (activeTab === data.tool_result!.overlay_type && updated.length > 0) setActiveTab(updated[updated.length - 1].type);
+            const updated = prev.filter(
+              (o) => o.type !== data.tool_result!.overlay_type,
+            );
+            if (
+              activeTab === data.tool_result!.overlay_type &&
+              updated.length > 0
+            )
+              setActiveTab(updated[updated.length - 1].type);
             return updated;
           });
         }
@@ -100,7 +267,11 @@ export default function ConsolePage() {
           const overlay = result.overlay as OverlayData;
           setOverlays((prev) => {
             const existing = prev.findIndex((o) => o.type === overlay.type);
-            if (existing >= 0) { const updated = [...prev]; updated[existing] = overlay; return updated; }
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = overlay;
+              return updated;
+            }
             return [...prev, overlay];
           });
           setActiveTab(overlay.type);
@@ -109,7 +280,9 @@ export default function ConsolePage() {
     ];
 
     ws.connect();
-    return () => { unsubs.forEach((u) => u()); };
+    return () => {
+      unsubs.forEach((u) => u());
+    };
   }, []);
 
   // Auto-scroll conversation
@@ -121,7 +294,10 @@ export default function ConsolePage() {
   const sendCommand = useCallback((text: string) => {
     if (!text.trim()) return;
     const ws = wsRef.current;
-    setConversation((prev) => [...prev, { role: "user", content: text, timestamp: new Date().toISOString() }]);
+    setConversation((prev) => [
+      ...prev,
+      { role: "user", content: text, timestamp: new Date().toISOString() },
+    ]);
     ws.sendVoiceCommand(text);
   }, []);
 
@@ -132,42 +308,46 @@ export default function ConsolePage() {
   const keepMicActiveRef = useRef(false);
 
   // WAV Encoding Helper
-  const encodeWAV = useCallback((chunks: Float32Array[], sampleRate: number): Blob => {
-    let length = 0;
-    for (let i = 0; i < chunks.length; i++) length += chunks[i].length;
-    
-    const buffer = new ArrayBuffer(44 + length * 2);
-    const view = new DataView(buffer);
-    
-    const writeString = (view: DataView, offset: number, string: string) => {
-      for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
-    };
-    
-    writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + length * 2, true);
-    writeString(view, 8, 'WAVE');
-    writeString(view, 12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // PCM
-    view.setUint16(22, 1, true); // 1 channel
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeString(view, 36, 'data');
-    view.setUint32(40, length * 2, true);
-    
-    let offset = 44;
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      for (let j = 0; j < chunk.length; j++) {
-        let s = Math.max(-1, Math.min(1, chunk[j]));
-        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-        offset += 2;
+  const encodeWAV = useCallback(
+    (chunks: Float32Array[], sampleRate: number): Blob => {
+      let length = 0;
+      for (let i = 0; i < chunks.length; i++) length += chunks[i].length;
+
+      const buffer = new ArrayBuffer(44 + length * 2);
+      const view = new DataView(buffer);
+
+      const writeString = (view: DataView, offset: number, string: string) => {
+        for (let i = 0; i < string.length; i++)
+          view.setUint8(offset + i, string.charCodeAt(i));
+      };
+
+      writeString(view, 0, "RIFF");
+      view.setUint32(4, 36 + length * 2, true);
+      writeString(view, 8, "WAVE");
+      writeString(view, 12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, 1, true); // 1 channel
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeString(view, 36, "data");
+      view.setUint32(40, length * 2, true);
+
+      let offset = 44;
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        for (let j = 0; j < chunk.length; j++) {
+          let s = Math.max(-1, Math.min(1, chunk[j]));
+          view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+          offset += 2;
+        }
       }
-    }
-    return new Blob([buffer], { type: 'audio/wav' });
-  }, []);
+      return new Blob([buffer], { type: "audio/wav" });
+    },
+    [],
+  );
 
   const toggleListening = useCallback(async () => {
     if (isListening) {
@@ -178,7 +358,7 @@ export default function ConsolePage() {
         workletNodeRef.current = null;
       }
       if (audioStreamRef.current) {
-        audioStreamRef.current.getTracks().forEach(t => t.stop());
+        audioStreamRef.current.getTracks().forEach((t) => t.stop());
         audioStreamRef.current = null;
       }
       if (audioContextRef.current) {
@@ -189,26 +369,31 @@ export default function ConsolePage() {
     } else {
       keepMicActiveRef.current = true;
       try {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+        const audioCtx = new (
+          window.AudioContext || (window as any).webkitAudioContext
+        )({ sampleRate: 16000 });
         audioContextRef.current = audioCtx;
-        
-        await audioCtx.audioWorklet.addModule('/vad-worklet.js');
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+        await audioCtx.audioWorklet.addModule("/vad-worklet.js");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
         audioStreamRef.current = stream;
-        
+
         const source = audioCtx.createMediaStreamSource(stream);
-        const node = new AudioWorkletNode(audioCtx, 'vad-processor');
+        const node = new AudioWorkletNode(audioCtx, "vad-processor");
         workletNodeRef.current = node;
-        
+
         let audioChunks: Float32Array[] = [];
-        
+
         node.port.onmessage = (e) => {
-          if (e.data.type === 'start') {
+          if (e.data.type === "start") {
             audioChunks = [];
             setAgentActivity("Hearing audio...");
-          } else if (e.data.type === 'chunk') {
+          } else if (e.data.type === "chunk") {
             audioChunks.push(e.data.data);
-          } else if (e.data.type === 'stop') {
+          } else if (e.data.type === "stop") {
             if (audioChunks.length > 0) {
               setAgentActivity("Encoding and sending audio snippet...");
               const wavBlob = encodeWAV(audioChunks, 16000);
@@ -217,7 +402,7 @@ export default function ConsolePage() {
             audioChunks = [];
           }
         };
-        
+
         source.connect(node);
         setIsListening(true);
         setAgentActivity("VAD active. Listening continuously...");
@@ -235,7 +420,7 @@ export default function ConsolePage() {
       setIsScreenSharing(false);
       if (videoRef.current) videoRef.current.srcObject = null;
       wsRef.current.sendToolCall("stop_screen_share");
-      
+
       keepMicActiveRef.current = false;
       if (isListening) {
         toggleListening();
@@ -243,7 +428,8 @@ export default function ConsolePage() {
       return;
     }
     try {
-      if (!screenShareRef.current) screenShareRef.current = new ScreenShareManager();
+      if (!screenShareRef.current)
+        screenShareRef.current = new ScreenShareManager();
       const stream = await screenShareRef.current.start((base64) => {
         // Send frames so the backend always has passive visual context
         wsRef.current.sendScreenFrame(base64);
@@ -251,7 +437,7 @@ export default function ConsolePage() {
       if (videoRef.current) videoRef.current.srcObject = stream;
       setIsScreenSharing(true);
       wsRef.current.sendToolCall("start_screen_share");
-      
+
       // Auto-start microphone when screen sharing starts
       keepMicActiveRef.current = true;
       if (!isListening) {
@@ -267,7 +453,12 @@ export default function ConsolePage() {
     wsRef.current.sendToolCall(tool);
   }, []);
 
-  const statusColor = connectionStatus === "connected" ? "bg-emerald-500" : connectionStatus === "connecting" ? "bg-amber-500" : "bg-slate-400";
+  const statusColor =
+    connectionStatus === "connected"
+      ? "bg-emerald-500"
+      : connectionStatus === "connecting"
+        ? "bg-amber-500"
+        : "bg-slate-400";
 
   return (
     <div className="h-screen flex bg-slate-50 text-slate-800 overflow-hidden font-sans">
@@ -275,17 +466,36 @@ export default function ConsolePage() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Video / Screen Share Area */}
         <div className="flex-1 relative bg-slate-900 flex items-center justify-center overflow-hidden">
-          <video ref={videoRef} autoPlay playsInline muted className={`w-full h-full object-contain ${isScreenSharing ? "block" : "hidden"}`} />
-          
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`w-full h-full object-contain ${isScreenSharing ? "block" : "hidden"}`}
+          />
+
           {!isScreenSharing && (
             <div className="text-center p-8">
               <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-slate-800 border border-slate-700 shadow-sm flex items-center justify-center">
-                <svg className="w-10 h-10 text-slate-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
+                <svg
+                  className="w-10 h-10 text-slate-500"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z"
+                  />
                 </svg>
               </div>
               <p className="text-slate-400 text-sm mb-4">No screen shared</p>
-              <button onClick={toggleScreenShare} className="px-6 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-medium transition-all shadow-md hover:shadow-lg active:scale-[0.98] text-sm">
+              <button
+                onClick={toggleScreenShare}
+                className="px-6 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-medium transition-all shadow-md hover:shadow-lg active:scale-[0.98] text-sm"
+              >
                 Start Screen Share
               </button>
             </div>
@@ -297,9 +507,14 @@ export default function ConsolePage() {
               <div className="flex items-center justify-center gap-4 pointer-events-auto">
                 <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/90 border border-slate-700 shadow-sm rounded-full">
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-xs font-medium text-slate-300">Screen sharing active</span>
+                  <span className="text-xs font-medium text-slate-300">
+                    Screen sharing active
+                  </span>
                 </div>
-                <button onClick={toggleScreenShare} className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs font-medium transition-all shadow-sm active:scale-95">
+                <button
+                  onClick={toggleScreenShare}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs font-medium transition-all shadow-sm active:scale-95"
+                >
                   Stop Sharing
                 </button>
               </div>
@@ -311,33 +526,40 @@ export default function ConsolePage() {
       {/* ─── Clinical Displays Column ───────────────────────────────── */}
       {(() => {
         return (
-          <div className={`${overlays.length > 0 ? "w-[32rem] border-l border-slate-200 opacity-100" : "w-0 border-none opacity-0"} transition-all duration-300 bg-slate-50/80 flex flex-col shadow-inner shrink-0 relative z-10 overflow-hidden`}>
+          <div
+            className={`${overlays.length > 0 ? "w-[32rem] border-l border-slate-200 opacity-100" : "w-0 border-none opacity-0"} transition-all duration-300 bg-slate-50/80 flex flex-col shadow-inner shrink-0 relative z-10 overflow-hidden`}
+          >
             {overlays.length > 0 && (
               <div className="flex border-b border-slate-200 bg-white overflow-x-auto sidebar-scrollbar shrink-0">
                 {overlays.map((o) => (
-                  <button 
-                    key={o.type} 
+                  <button
+                    key={o.type}
                     onClick={() => setActiveTab(o.type)}
-                    className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === o.type ? 'border-sky-500 text-sky-600 bg-sky-50/30' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                    className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-colors border-b-2 ${activeTab === o.type ? "border-sky-500 text-sky-600 bg-sky-50/30" : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}
                   >
-                    {o.title.split('—')[0].trim()}
+                    {o.title.split("—")[0].trim()}
                   </button>
                 ))}
               </div>
             )}
             <div className="p-4 w-[32rem] flex-1 overflow-y-auto sidebar-scrollbar">
-              {overlays.filter(o => o.type === activeTab).map((overlay) => (
-                <ClinicalCard 
-                  key={overlay.type} 
-                  overlay={overlay} 
-                  onClose={() => {
-                    const newOverlays = overlays.filter((o) => o.type !== overlay.type);
-                    setOverlays(newOverlays);
-                    if (activeTab === overlay.type && newOverlays.length > 0) setActiveTab(newOverlays[newOverlays.length - 1].type);
-                  }} 
-                  inline={true}
-                />
-              ))}
+              {overlays
+                .filter((o) => o.type === activeTab)
+                .map((overlay) => (
+                  <ClinicalCard
+                    key={overlay.type}
+                    overlay={overlay}
+                    onClose={() => {
+                      const newOverlays = overlays.filter(
+                        (o) => o.type !== overlay.type,
+                      );
+                      setOverlays(newOverlays);
+                      if (activeTab === overlay.type && newOverlays.length > 0)
+                        setActiveTab(newOverlays[newOverlays.length - 1].type);
+                    }}
+                    inline={true}
+                  />
+                ))}
             </div>
           </div>
         );
@@ -348,7 +570,9 @@ export default function ConsolePage() {
         {/* Voice Orb */}
         <div className="p-6 text-center border-b border-slate-100 bg-slate-50/50 shrink-0">
           <div className="relative w-20 h-20 mx-auto mb-3">
-            <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${isListening ? "from-red-500/20 to-rose-500/20 orb-pulse" : connectionStatus === "connected" ? "from-sky-400/20 to-cyan-400/20 orb-pulse" : "from-slate-200/20 to-slate-300/20"}`} />
+            <div
+              className={`absolute inset-0 rounded-full bg-gradient-to-br ${isListening ? "from-red-500/20 to-rose-500/20 orb-pulse" : connectionStatus === "connected" ? "from-sky-400/20 to-cyan-400/20 orb-pulse" : "from-slate-200/20 to-slate-300/20"}`}
+            />
             <button
               onClick={toggleListening}
               disabled={connectionStatus !== "connected"}
@@ -356,95 +580,140 @@ export default function ConsolePage() {
                 isListening
                   ? "from-red-500 to-rose-600 text-white border-red-400 shadow-md scale-95 orb-active-red"
                   : connectionStatus === "connected"
-                  ? "from-white to-slate-50 hover:to-slate-100/50 border-sky-300 hover:border-sky-400 text-sky-600 shadow-sm active:scale-95 orb-active"
-                  : "from-slate-100 to-slate-200 border-slate-300 text-slate-400 cursor-not-allowed"
+                    ? "from-white to-slate-50 hover:to-slate-100/50 border-sky-300 hover:border-sky-400 text-sky-600 shadow-sm active:scale-95 orb-active"
+                    : "from-slate-100 to-slate-200 border-slate-300 text-slate-400 cursor-not-allowed"
               } border flex items-center justify-center cursor-pointer transition-all duration-200 focus:outline-none`}
             >
-              <svg className={`w-8 h-8 ${isListening ? "text-white" : connectionStatus === "connected" ? "text-sky-500" : "text-slate-400"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+              <svg
+                className={`w-8 h-8 ${isListening ? "text-white" : connectionStatus === "connected" ? "text-sky-500" : "text-slate-400"}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
+                />
               </svg>
             </button>
           </div>
-          <p className={`text-[10px] font-bold tracking-widest ${isListening ? "text-red-500 animate-pulse" : connectionStatus === "connected" ? "text-sky-600" : "text-slate-400"} uppercase mt-2`}>
+          <p
+            className={`text-[10px] font-bold tracking-widest ${isListening ? "text-red-500 animate-pulse" : connectionStatus === "connected" ? "text-sky-600" : "text-slate-400"} uppercase mt-2`}
+          >
             {isListening
               ? "LISTENING... TAP TO STOP"
               : connectionStatus === "connected"
-              ? "LUMEN ONLINE"
-              : connectionStatus === "connecting"
-              ? "CONNECTING..."
-              : "LUMEN OFFLINE"}
+                ? "LUMEN ONLINE"
+                : connectionStatus === "connecting"
+                  ? "CONNECTING..."
+                  : "LUMEN OFFLINE"}
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto sidebar-scrollbar bg-white p-4">
-          
           {/* Collapsible Agents & Tools Section */}
           <details className="group mb-6" open>
             <summary className="flex cursor-pointer list-none items-center justify-between pb-2 border-b border-slate-100 focus:outline-none">
               <h3 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
                 Agents & Tools
               </h3>
-              <svg className="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <svg
+                className="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </summary>
-            
+
             <div className="pt-4">
               {/* Agents */}
               <div className="mb-4">
-                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Agents</p>
+                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">
+                  Agents
+                </p>
                 <div className="space-y-1">
-                  {AGENT_LIST.filter((a) => a.id === "orchestrator").map((a) => (
-                    <div key={a.id} className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-default transition-all border ${activeAgent === a.id ? "bg-sky-50 text-sky-600 border-sky-200 shadow-sm" : "border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800"}`}>
-                      {a.name}
-                    </div>
-                  ))}
+                  {AGENT_LIST.filter((a) => a.id === "orchestrator").map(
+                    (a) => (
+                      <AgentTooltipItem
+                        key={a.id}
+                        a={a}
+                        activeAgent={activeAgent}
+                      />
+                    ),
+                  )}
                 </div>
               </div>
 
               {/* Protocol */}
               <div className="mb-4">
-                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Protocol</p>
+                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">
+                  Protocol
+                </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {AGENT_LIST.filter((a) => a.category === "protocol").map((a) => (
-                    <div key={a.id} className={`px-2 py-1.5 rounded-lg text-xs font-medium border text-center cursor-default transition-colors ${activeAgent === a.id ? "border-sky-300 bg-sky-50 text-sky-600 shadow-sm" : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"}`}>
-                      {a.name}
-                    </div>
-                  ))}
+                  {AGENT_LIST.filter((a) => a.category === "protocol").map(
+                    (a) => (
+                      <AgentTooltipItem
+                        key={a.id}
+                        a={a}
+                        activeAgent={activeAgent}
+                      />
+                    ),
+                  )}
                 </div>
               </div>
 
               {/* Decision Support */}
               <div className="mb-4">
-                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Decision Support</p>
+                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">
+                  Decision Support
+                </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {AGENT_LIST.filter((a) => a.category === "decision").map((a) => (
-                    <div key={a.id} className={`px-2 py-1.5 rounded-lg text-[11px] font-medium border text-center cursor-default transition-colors ${activeAgent === a.id ? "border-amber-300 bg-amber-50 text-amber-700 shadow-sm" : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"}`}>
-                      {a.name}
-                    </div>
-                  ))}
+                  {AGENT_LIST.filter((a) => a.category === "decision").map(
+                    (a) => (
+                      <AgentTooltipItem
+                        key={a.id}
+                        a={a}
+                        activeAgent={activeAgent}
+                      />
+                    ),
+                  )}
                 </div>
               </div>
 
               {/* Visual Intelligence */}
               <div className="mb-6">
-                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">Visual Intelligence</p>
+                <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2">
+                  Visual Intelligence
+                </p>
                 <div className="space-y-2">
-                  {AGENT_LIST.filter((a) => a.category === "visual").map((a) => (
-                    <div key={a.id} className={`px-2 py-1.5 rounded-lg text-xs font-medium border text-center cursor-default transition-colors ${activeAgent === a.id ? "border-violet-300 bg-violet-50 text-violet-700 shadow-sm" : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"}`}>
-                      {a.name}
-                    </div>
-                  ))}
+                  {AGENT_LIST.filter((a) => a.category === "visual").map(
+                    (a) => (
+                      <AgentTooltipItem
+                        key={a.id}
+                        a={a}
+                        activeAgent={activeAgent}
+                      />
+                    ),
+                  )}
                 </div>
               </div>
 
               {/* Screen Share Section */}
-              <div className="mb-2">
+              {/* <div className="mb-2">
                 <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-2">Screen Share</p>
                 <button onClick={toggleScreenShare} className={`block w-full text-center px-2.5 py-1.5 text-xs font-mono rounded-lg border transition-colors font-medium ${isScreenSharing ? "text-red-500 border-red-200 hover:bg-red-50" : "text-sky-600 border-sky-200 hover:bg-sky-50"}`}>
                   {isScreenSharing ? "stop_screen_share" : "start_screen_share"}
                 </button>
-              </div>
+              </div> */}
             </div>
           </details>
 
@@ -454,7 +723,9 @@ export default function ConsolePage() {
               Agent Activity
             </h3>
             <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
-              <p className="text-[11px] text-slate-600 leading-relaxed break-all font-mono">{agentActivity}</p>
+              <p className="text-[11px] text-slate-600 leading-relaxed break-all font-mono">
+                {agentActivity}
+              </p>
             </div>
           </div>
 
@@ -465,25 +736,33 @@ export default function ConsolePage() {
             </h3>
             <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
               {conversation.length === 0 ? (
-                <p className="text-[11px] text-slate-400 italic">No commands yet</p>
+                <p className="text-[11px] text-slate-400 italic">
+                  No commands yet
+                </p>
               ) : (
                 conversation.map((msg, i) => (
-                  <div 
-                    key={i} 
+                  <div
+                    key={i}
                     className={`p-2.5 border rounded-xl text-xs transition-all ${
-                      msg.role === "user" 
-                        ? "border-slate-100 bg-slate-50" 
+                      msg.role === "user"
+                        ? "border-slate-100 bg-slate-50"
                         : "border-sky-100 bg-sky-50/40 text-slate-800"
                     }`}
                   >
-                    <span className={`font-bold text-[9px] uppercase tracking-wider block mb-1 ${
-                      msg.role === "user" ? "text-slate-400" : "text-sky-600"
-                    }`}>
-                      {msg.role === "user" ? "Doctor Command" : `${msg.agent || "Agent"} Response`}
+                    <span
+                      className={`font-bold text-[9px] uppercase tracking-wider block mb-1 ${
+                        msg.role === "user" ? "text-slate-400" : "text-sky-600"
+                      }`}
+                    >
+                      {msg.role === "user"
+                        ? "Doctor Command"
+                        : `${msg.agent || "Agent"} Response`}
                     </span>
-                    <p className={`leading-relaxed font-medium ${
-                      msg.role === "user" ? "text-slate-700" : "text-sky-950"
-                    }`}>
+                    <p
+                      className={`leading-relaxed font-medium ${
+                        msg.role === "user" ? "text-slate-700" : "text-sky-950"
+                      }`}
+                    >
                       {msg.role === "user" ? `"${msg.content}"` : msg.content}
                     </p>
                   </div>
@@ -492,7 +771,6 @@ export default function ConsolePage() {
               <div ref={conversationEndRef} />
             </div>
           </div>
-
         </div>
       </div>
     </div>

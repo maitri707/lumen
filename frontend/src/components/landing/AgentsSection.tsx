@@ -1,87 +1,84 @@
 "use client";
+import React from "react";
 import { AGENT_LIST } from "@/types";
-
-const categoryColors: Record<string, string> = {
-  orchestrator: "border-zinc-300 bg-zinc-100",
-  protocol: "border-indigo-200 bg-indigo-50/50",
-  decision: "border-rose-200 bg-rose-50/50",
-  visual: "border-fuchsia-200 bg-fuchsia-50/50",
-};
-
-const categoryTextColors: Record<string, string> = {
-  orchestrator: "text-zinc-800",
-  protocol: "text-indigo-700",
-  decision: "text-rose-700",
-  visual: "text-fuchsia-700",
-};
-
-const categoryLabels: Record<string, string> = {
-  orchestrator: "CORE DISPATCHER",
-  protocol: "SAFETY & PROTOCOL",
-  decision: "CLINICAL INSIGHTS",
-  visual: "SPATIAL ANALYSIS",
-};
+import AgentIcon from "@/components/common/AgentIcon";
 
 export default function AgentsSection() {
   return (
-    <section className="py-32 bg-zinc-50 border-b border-zinc-100">
+    <section id="agents" className="py-24 bg-white relative">
+      {/* Background visual cue */}
+      <div className="absolute inset-0 opacity-[0.01] pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:24px_24px]" />
+
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <div className="max-w-3xl mb-20">
-          <p className="text-sm font-semibold tracking-widest text-indigo-600 uppercase mb-4">
-            Specialized Modules
-          </p>
-          <h2 className="text-4xl md:text-6xl font-extrabold text-zinc-900 leading-tight">
-            A Singular Brain.
-            <br />
-            <span className="text-zinc-400 font-medium">Six Dedicated Experts.</span>
+        {/* Section Header */}
+        <div className="max-w-3xl mx-auto text-center mb-20">
+          <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight">
+            What specialized <span className="text-sky-600">agents</span> we
+            offer
           </h2>
-          <p className="mt-8 text-xl text-zinc-600 leading-relaxed font-light">
-            The central intelligence engine instantly parses verbal requests and delegates them to the appropriate domain expert—be it for compliance tracking, vital cross-checks, procedural scribing, or imaging manipulation—with zero manual input required.
+          <p className="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed">
+            These specialized modules represent a diverse range of surgical
+            intelligence capabilities, designed to integrate seamlessly into
+            active clinical workflows.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {AGENT_LIST.map((agent, i) => (
-            <div
-              key={agent.id}
-              className={`p-6 rounded-3xl border transition-all duration-300 hover:shadow-lg ${agent.id === "orchestrator"
-                  ? "md:col-span-2 lg:col-span-3 border-indigo-300 bg-indigo-50 shadow-sm"
-                  : `${categoryColors[agent.category]} bg-white hover:-translate-y-1`
+        {/* 4-Column Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {AGENT_LIST.map((agent, index) => {
+            const num = String(index + 1).padStart(3, '0');
+            const isOrchestrator = agent.id === "orchestrator";
+
+            return (
+              <div
+                key={agent.id}
+                className={`flex flex-col group p-8 rounded-[2rem] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 border ${
+                  isOrchestrator ? "bg-sky-50/50 border-sky-200 hover:border-sky-300" : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/50"
                 }`}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <span
-                    className={`text-[11px] font-bold tracking-widest uppercase px-2 py-1 rounded-md bg-white/60 border border-white/50 shadow-sm ${categoryTextColors[agent.category]}`}
-                  >
-                    {categoryLabels[agent.category]}
+              >
+                <div className="flex items-start justify-between mb-12">
+                  <span className="text-slate-400 font-bold text-sm tracking-widest mt-1">
+                    {num}
                   </span>
-                  <p className="text-xs font-mono text-zinc-400 mt-2">
-                    MOD-{String(i).padStart(3, "0")}
+                  <div
+                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-300 border ${
+                      isOrchestrator
+                        ? "bg-sky-600 border-sky-500 text-white shadow-sky-200"
+                        : "bg-white border-slate-100 text-slate-700 group-hover:text-sky-600 group-hover:bg-sky-50 group-hover:border-sky-100"
+                    }`}
+                  >
+                    <AgentIcon agentId={agent.id} className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="flex flex-col flex-1">
+                  <h3 className="text-lg font-bold text-slate-900 mb-3 tracking-tight">
+                    {agent.name}
+                  </h3>
+                  <p className="text-slate-500 text-sm leading-relaxed mb-6">
+                    {agent.description}. Integrates directly with your workflow to provide{" "}
+                    <span className="font-semibold text-slate-600">{agent.category}</span>-specific assistance.
                   </p>
+
+                  {/* Capabilities pills */}
+                  <div className="flex flex-wrap gap-2 mt-auto">
+                    {agent.capabilities.slice(0, 3).map((cap) => (
+                      <span
+                        key={cap}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${
+                          isOrchestrator 
+                            ? "bg-sky-100/50 text-sky-700 border-sky-200/60" 
+                            : "text-slate-500 bg-slate-50 border-slate-200/80"
+                        }`}
+                      >
+                        {cap}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              <h4 className="text-xl font-bold text-zinc-900 mb-2">
-                {agent.name}
-              </h4>
-              <p className="text-sm text-zinc-600 mb-6 leading-relaxed">{agent.description}</p>
-
-              <div className="flex flex-wrap gap-2">
-                {agent.capabilities.map((cap) => (
-                  <span
-                    key={cap}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-lg border ${agent.id === "orchestrator"
-                        ? "bg-indigo-100 border-indigo-200 text-indigo-800"
-                        : "bg-white border-zinc-200 text-zinc-600 shadow-sm"
-                      }`}
-                  >
-                    {cap}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
