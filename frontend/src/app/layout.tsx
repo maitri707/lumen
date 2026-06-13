@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LUMEN",
+  title: "LUMEN | Next-Gen Surgical Intelligence",
   description:
-    "LUMEN gives surgeons hands-free access to everything — patient data, CT imaging, 3D anatomy, and AI-driven surgical checklists — using only their voice.",
+    "LUMEN is a voice-activated surgical intelligence swarm. It gives surgeons hands-free access to EHR data, 3D anatomy, and AI-driven safety checklists — all without breaking scrub.",
 };
 
 export default function RootLayout({
@@ -22,11 +22,11 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=League+Gothic&family=Sora:wght@100..800&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased sora">{children}</body>
     </html>
   );
 }
