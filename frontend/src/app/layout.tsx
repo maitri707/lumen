@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LUMEN",
+  title: "LUMEN | Next-Gen Surgical Intelligence",
   description:
-    "LUMEN gives surgeons hands-free access to everything — patient data, CT imaging, 3D anatomy, and AI-driven surgical checklists — using only their voice.",
+    "LUMEN is a voice-activated surgical intelligence swarm. It gives surgeons hands-free access to EHR data, 3D anatomy, and AI-driven safety checklists — all without breaking scrub.",
 };
 
 export default function RootLayout({
